@@ -1,0 +1,8 @@
+legacyimagemaps.invalid_image_or_url=The provided URL is not an image or a connection could not be made
+legacyimagemaps.file_too_big=File at provided URL is too big
+legacyimagemaps.image_too_big=Image at provided URL exceeds dimension limit
+legacyimagemaps.image_from_url_success=Successfully downloaded image from URL
+legacyimagemaps.image_test_scale=Final required map count:
+legacyimagemaps.image_scaled=Image scaled of size:
+legacyimagemaps.image_required_map_count=Required map count:
+legacyimagemaps.image_converted_count=Converted image segments to maps
