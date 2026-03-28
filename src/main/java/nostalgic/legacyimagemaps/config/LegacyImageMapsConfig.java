@@ -15,17 +15,26 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Maximum size in bytes that a downloaded image is allowed to be.", "Default: 2097152"})
         public int maxImageSize =  2097152;
 
-        @Config.Comment({"Maximum dimensions that a downloaded image is allowed to be.", "Default: 4096"})
+        @Config.Comment({"Maximum dimension that a downloaded image is allowed to be.", "Default: 4096"})
         public int maxImageDimensions = 4096;
 
-        @Config.Comment({"What dimension maps should be set in. Can be any number even if the dimension doesn't exist. Change if the dimension DOES exist.", "Default: 0"})
+        @Config.Comment({"Maximum total number of maps that a scaled image can be equal to.", "Default: 64"})
+        public int maxMapCount = 64;
+
+        @Config.Comment({"What dimension maps should be set in. Can be any number even if the dimension doesn't exist.", "Default: 0"})
         public int mapItemDimension = 0;
 
         @Config.Comment({"What coordinates maps should be set in. Putting them in accessible coordinates in a real dimension will cause them to be overwritten when accessed.", "Default: 0"})
         public int mapX = 32000000;
         public int mapZ = 32000000;
 
-        @Config.Comment({"Give a name with coordinates to produced maps. These will show up when hovered over on Item Frames so it may be distracting.", "Default: false"})
-        public boolean giveMapsCoordNames = false;
+        @Config.Comment({"Maximum number of color rgb->map colors that should be cached before cached colors are removed.", "Default: 8192"})
+        public int maxCachedColorConversions = 8192;
+
+        @Config.Comment({"Maximum number of image segments->color byte arrays that should be cached before cached arrays are removed.", "Default: 8192"})
+        public int maxCachedByteArrays = 8192;
+
+        //@Config.Comment({"Give a name with coordinates to produced maps. These will show up when hovered over on Item Frames so it may be distracting.", "Default: false"})
+        //public boolean giveMapsCoordNames = false;
     }
 }
