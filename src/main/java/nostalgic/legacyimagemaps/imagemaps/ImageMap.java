@@ -44,8 +44,8 @@ public class ImageMap {
         this.sender = sender;
     }
 
-    //do NOT run this off thread, it can and probably will crash the game with concurrent modification
-    public ItemStack[] convertByteArraysToMapItems() {
+    //do NOT run this off thread, it can and probably will crash the game with concurrent modification, or be a duplication exploit
+    public ItemStack[] convertByteArraysToItemStacks() {
         World world = sender.getEntityWorld();
 
         maps = new ItemStack[byteMaps.length];
@@ -173,7 +173,7 @@ public class ImageMap {
         }
     }
 
-    public int[] getScaledWidthAndHeight(int scale) {
+    public boolean scaleImage(int scale, boolean letterbox, boolean preserveTransparency, Color color, boolean test) {
         int scaleWidth;
         int scaleHeight;
 
@@ -194,7 +194,7 @@ public class ImageMap {
             scaleWidth = scaledWidthOnMap <= 128 ? 1 : (scaledWidthOnMap % 128 == 0 ? scaledWidthOnMap/128 : (scaledWidthOnMap/128)+1);
         }
 
-        return new int[]{scaleWidth,scaleHeight};
+        return scaleImage(scaleWidth, scaleHeight, letterbox, preserveTransparency, color, test);
     }
 
     public boolean scaleImage(int width, int height, boolean letterbox, boolean preserveTransparency, Color color, boolean test) {

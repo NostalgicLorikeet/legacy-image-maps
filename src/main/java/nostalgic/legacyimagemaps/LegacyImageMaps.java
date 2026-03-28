@@ -1,24 +1,31 @@
 package nostalgic.legacyimagemaps;
 
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
-import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import nostalgic.legacyimagemaps.command.CommandImageMap;
-import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
 import nostalgic.legacyimagemaps.imagemaps.cache.CacheAll;
-import nostalgic.legacyimagemaps.imagemaps.cache.CacheLinkedHashMap;
 import nostalgic.legacyimagemaps.legacyimagemaps.Tags;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Collections;
+import java.io.*;
+import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.Map;
 
 @Mod(modid = Tags.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION, acceptableRemoteVersions = "*")
 public class LegacyImageMaps {
 
     public static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
+    public static File legacyImageMapsDirectory;
+    public static File legacyImageMapsByteMapCacheFile;
+    public static File legacyImageMapsColorMapCacheFile;
 
     /**
      * <a href="https://cleanroommc.com/wiki/forge-mod-development/event#overview">
@@ -27,8 +34,40 @@ public class LegacyImageMaps {
      */
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        CacheAll.byteMap = Collections.synchronizedMap(new CacheLinkedHashMap<>(LegacyImageMapsConfig.options.maxCachedByteArrays));
-        CacheAll.colorMap = Collections.synchronizedMap(new CacheLinkedHashMap<>(LegacyImageMapsConfig.options.maxCachedColorConversions));
+        legacyImageMapsDirectory = new File(event.getModConfigurationDirectory().getParentFile(),"LegacyImageMaps");
+        legacyImageMapsByteMapCacheFile = new File(legacyImageMapsDirectory,"bytemap_cache.dat");
+        legacyImageMapsColorMapCacheFile = new File(legacyImageMapsDirectory,"colormap_cache.dat");
+
+        if (!legacyImageMapsDirectory.exists()) {
+            legacyImageMapsDirectory.mkdir();
+        }
+
+        if (legacyImageMapsByteMapCacheFile.exists()) {
+            try {
+                NBTTagCompound byteMapCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsByteMapCacheFile.toPath()));
+                for (String key : byteMapCompound.getKeySet()) {
+                    CacheAll.byteMap.put(key, byteMapCompound.getByteArray(key));
+                }
+            } catch (IOException e) {
+                LOGGER.error(e);
+            }
+        }
+
+        if (legacyImageMapsColorMapCacheFile.exists()) {
+            try {
+                NBTTagCompound colorMapCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsColorMapCacheFile.toPath()));
+                int[] keys = colorMapCompound.getIntArray("keys");
+                int[] values = colorMapCompound.getIntArray("values");
+
+                for (int i = 0; i < keys.length; i++) {
+                    CacheAll.colorMap.put(keys[i],values[i]);
+                }
+            } catch (IOException e) {
+                LOGGER.error(e);
+            }
+        }
+
+        MinecraftForge.EVENT_BUS.register(this);
     }
 
     @Mod.EventHandler
@@ -36,8 +75,47 @@ public class LegacyImageMaps {
         event.registerServerCommand(new CommandImageMap());
     }
 
-    @Mod.EventHandler
+    @SubscribeEvent
     public void cacheSave(WorldEvent.Save event) {
-        
+        if (event.getWorld().provider.getDimension() != 0) return;
+
+        NBTTagCompound byteMapNBT = new NBTTagCompound();
+        NBTTagCompound colorMapNBT = new NBTTagCompound();
+
+        Map<String, byte[]> byteMapOld;
+        Map<Integer, Integer> colorMapOld;
+
+        synchronized (CacheAll.infiniteTortureDevice) {
+            byteMapOld = new HashMap<>(CacheAll.byteMap);
+            colorMapOld = new HashMap<>(CacheAll.colorMap);
+        }
+
+        int[] colorMapKeys = new int[colorMapOld.size()];
+        int[] colorMapValues = new int[colorMapOld.size()];
+
+        for (Map.Entry<String, byte[]> entry : byteMapOld.entrySet()) {
+            byteMapNBT.setByteArray(entry.getKey(), entry.getValue());
+        }
+
+        int i = 0;
+        for (Map.Entry<Integer, Integer> entry : colorMapOld.entrySet()) {
+            colorMapKeys[i] = entry.getKey();
+            colorMapValues[i] = entry.getValue();
+            i++;
+        }
+
+        colorMapNBT.setIntArray("keys",colorMapKeys);
+        colorMapNBT.setIntArray("values",colorMapValues);
+
+        try {
+            try (OutputStream output = Files.newOutputStream(legacyImageMapsByteMapCacheFile.toPath())) {
+                CompressedStreamTools.writeCompressed(byteMapNBT, output);
+            }
+            try (OutputStream output = Files.newOutputStream(legacyImageMapsColorMapCacheFile.toPath())) {
+                CompressedStreamTools.writeCompressed(colorMapNBT, output);
+            }
+        } catch (IOException e) {
+            LOGGER.error(e);
+        }
     }
 }

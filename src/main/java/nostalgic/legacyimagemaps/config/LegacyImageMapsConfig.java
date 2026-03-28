@@ -28,11 +28,11 @@ public final class LegacyImageMapsConfig
         public int mapX = 32000000;
         public int mapZ = 32000000;
 
-        @Config.Comment({"Maximum number of color rgb->map colors that should be cached before cached colors are removed.", "Default: 8192"})
+        @Config.Comment({"Maximum number of color rgb->map colors that should be cached before cached colors are removed.", "You could theoretically set this as high as 16777216 but that is probably a really bad idea.", "Default: 8192"})
         public int maxCachedColorConversions = 8192;
 
-        @Config.Comment({"Maximum number of image segments->color byte arrays that should be cached before cached arrays are removed.", "Default: 8192"})
-        public int maxCachedByteArrays = 8192;
+        @Config.Comment({"Maximum number of image segments->color byte arrays (aka all the colors on a map) that should be cached before cached arrays are removed.", "Default: 32"})
+        public int maxCachedByteArrays = 32;
 
         //@Config.Comment({"Give a name with coordinates to produced maps. These will show up when hovered over on Item Frames so it may be distracting.", "Default: false"})
         //public boolean giveMapsCoordNames = false;
