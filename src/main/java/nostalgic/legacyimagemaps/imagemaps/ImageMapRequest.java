@@ -40,6 +40,7 @@ public class ImageMapRequest {
                             imagemap.scaleImage(scale, noLetterbox, removeAlpha, color, test) :
                             imagemap.scaleImage(width, height, noLetterbox, removeAlpha, color, test)
                         ) {
+                        imagemap.dither();
                         imagemap.prepareArray();
                         imagemap.convertImagesToByteArray();
 

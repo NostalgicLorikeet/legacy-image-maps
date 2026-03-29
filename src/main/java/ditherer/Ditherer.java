@@ -1,5 +1,7 @@
 package ditherer;
 
+import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
+
 import java.awt.image.BufferedImage;
 
 public class Ditherer {
@@ -21,6 +23,9 @@ public class Ditherer {
 	public void dither(BufferedImage img) {
 		for (int y = 0; y < img.getHeight(); y++) {
 			for (int x = 0; x < img.getWidth(); x++) {
+				if ((img.getRGB(x,y) >> 24) < LegacyImageMapsConfig.options.transparencyThreshold) {
+					continue;
+				}
 
 				VectorRGB current_color = new VectorRGB(img.getRGB(x, y));
 				VectorRGB closest_match = palette.getClosestMatch(current_color);

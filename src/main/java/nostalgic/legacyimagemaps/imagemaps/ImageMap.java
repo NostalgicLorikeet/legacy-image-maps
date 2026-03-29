@@ -1,6 +1,7 @@
 package nostalgic.legacyimagemaps.imagemaps;
 
 import com.google.common.hash.Hashing;
+import ditherer.Ditherer;
 import net.minecraft.block.material.MapColor;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.init.Items;
@@ -26,15 +27,15 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Base64;
 
 public class ImageMap {
     public static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
     public static final long connectionMaxSize = LegacyImageMapsConfig.options.maxImageSize;
-    public static final long maxImageDimensions = LegacyImageMapsConfig.options.maxImageDimensions;
+    public static final int maxImageDimensions = LegacyImageMapsConfig.options.maxImageDimensions;
     public static final int mapItemDimension = LegacyImageMapsConfig.options.mapItemDimension;
     public static final int maxMapCount = LegacyImageMapsConfig.options.maxMapCount;
+    public static final Ditherer ditherer = new Ditherer(PaletteHolder.ditheringPalette);
     public final ICommandSender sender;
 
     BufferedImage image;
@@ -207,6 +208,10 @@ public class ImageMap {
                 images[x][y] = tile;
             }
         }
+    }
+
+    public void dither() {
+        ditherer.dither(imageScaled);
     }
 
     public boolean scaleImage(int scale, boolean noLetterbox, boolean removeAlpha, Color color, boolean test) {
