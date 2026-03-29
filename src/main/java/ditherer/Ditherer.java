@@ -2,6 +2,7 @@ package ditherer;
 
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
 
 public class Ditherer {
@@ -21,9 +22,14 @@ public class Ditherer {
 	}
 
 	public void dither(BufferedImage img) {
+		BufferedImage original = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_4BYTE_ABGR);
+		Graphics2D g = original.createGraphics();
+		g.drawImage(img, 0, 0, null);
+		g.dispose();
+
 		for (int y = 0; y < img.getHeight(); y++) {
 			for (int x = 0; x < img.getWidth(); x++) {
-				if ((img.getRGB(x,y) >> 24) < LegacyImageMapsConfig.options.transparencyThreshold) {
+				if ((original.getRGB(x,y) >>> 24) < LegacyImageMapsConfig.options.transparencyThreshold) {
 					continue;
 				}
 

@@ -48,14 +48,8 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Whether to use standard Euclidean distance for RGB->map colors instead of Redmean.", "When changing this you should delete the \"colormap_cache.dat\" file in the LegacyImageMaps directory under Minecraft's root", "Default: false"})
         public boolean useEuclideanDistance = false;
 
-        @Config.Comment({"Minimum permission level needed to use /imagemap.", "Default: 127"})
-        public int minimumPermissionRequired = 0;
-
-        @Config.Comment({"Allow players in survival to run this command if they have no empty maps in their inventory.", "Default: false"})
-        public boolean allowSurvivalUseWithoutMaps = false;
-
-        @Config.Comment({"Allow players in survival to run this command in general.", "Default: false"})
-        public boolean allowSurvivalUse = false;
+        @Config.Comment({"Whether to allow dithering as an option for imagemaps.", "Default: true"})
+        public boolean allowDithering = true;
 
         //@Config.Comment({"Give a name with coordinates to produced maps. These will show up when hovered over on Item Frames so it may be distracting.", "Default: false"})
         //public boolean giveMapsCoordNames = false;

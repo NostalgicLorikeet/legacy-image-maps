@@ -211,7 +211,9 @@ public class ImageMap {
     }
 
     public void dither() {
-        ditherer.dither(imageScaled);
+        if (LegacyImageMapsConfig.options.allowDithering) {
+            ditherer.dither(imageScaled);
+        }
     }
 
     public boolean scaleImage(int scale, boolean noLetterbox, boolean removeAlpha, Color color, boolean test) {
