@@ -1,13 +1,14 @@
 package nostalgic.legacyimagemaps.imagemaps;
 
+import com.google.common.hash.Hashing;
 import net.minecraft.block.material.MapColor;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
 import net.minecraft.world.storage.MapData;
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
@@ -21,9 +22,11 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Base64;
 
 public class ImageMap {
@@ -46,27 +49,39 @@ public class ImageMap {
 
     //do NOT run this off thread, it can and probably will crash the game with concurrent modification, or be a duplication exploit
     public ItemStack[] convertByteArraysToItemStacks() {
+        return convertByteArraysToItemStacks(byteMaps.length);
+    }
+
+    public ItemStack[] convertByteArraysToItemStacks(int limit) {
         World world = sender.getEntityWorld();
 
-        maps = new ItemStack[byteMaps.length];
+        maps = new ItemStack[Math.min(byteMaps.length,limit)];
 
-        for (int i = 0; i < byteMaps.length; i++) {
-            ItemStack imageMapItem = new ItemStack(Items.FILLED_MAP);
-            int imageMapId = world.getMapStorage().getUniqueDataId("map");
-            String imageMapName = "map_" + imageMapId;
-            MapData imageMapData = new MapData(imageMapName);
-            imageMapData.scale = 3;
-            imageMapData.dimension = (byte) mapItemDimension;
-            imageMapData.calculateMapCenter(LegacyImageMapsConfig.options.mapX, LegacyImageMapsConfig.options.mapZ, imageMapData.scale);
+        for (int i = 0; i < byteMaps.length && i < limit; i++) {
+            long hash = Hashing.murmur3_128().hashBytes(byteMaps[i]).asLong();
+            ItemStack imageMapItem;
 
-            imageMapData.colors = byteMaps[i];
+            if (CacheAll.byteMapToItemStackMap.containsKey(hash)) {
+                imageMapItem = CacheAll.byteMapToItemStackMap.get(hash);
+            } else {
+                imageMapItem = new ItemStack(Items.FILLED_MAP);
+                int imageMapId = world.getMapStorage().getUniqueDataId("map");
+                String imageMapName = "map_" + imageMapId;
+                MapData imageMapData = new MapData(imageMapName);
+                imageMapData.scale = 3;
+                imageMapData.dimension = (byte) mapItemDimension;
+                imageMapData.calculateMapCenter(LegacyImageMapsConfig.options.mapX, LegacyImageMapsConfig.options.mapZ, imageMapData.scale);
 
-            world.getMapStorage().setData(imageMapName, imageMapData);
-            imageMapData.markDirty();
-            imageMapItem.setItemDamage(imageMapId);
-            //if (LegacyImageMapsConfig.options.giveMapsCoordNames) {
-            //    imageMapItem.setStackDisplayName("ImageMap " + x + "," + y);
-            //}
+                imageMapData.colors = byteMaps[i];
+
+                world.getMapStorage().setData(imageMapName, imageMapData);
+                imageMapData.markDirty();
+                imageMapItem.setItemDamage(imageMapId);
+                //if (LegacyImageMapsConfig.options.giveMapsCoordNames) {
+                //    imageMapItem.setStackDisplayName("ImageMap " + x + "," + y);
+                //}
+                CacheAll.byteMapToItemStackMap.put(hash, imageMapItem);
+            }
 
             maps[i] = imageMapItem;
         }
@@ -75,7 +90,11 @@ public class ImageMap {
     }
 
     public void convertImagesToByteArray() {
-        convertImagesToByteArray(127);
+        convertImagesToByteArray(LegacyImageMapsConfig.options.transparencyThreshold);
+    }
+
+    public void convertImagesToByteArray(int start, int end) {
+        convertImagesToByteArray(start, end, LegacyImageMapsConfig.options.transparencyThreshold);
     }
 
     public void convertImagesToByteArray(int transparencyThreshold) {
@@ -83,6 +102,9 @@ public class ImageMap {
     }
 
     public void convertImagesToByteArray(int start, int end, int transparencyThreshold) {
+        if (end < start) {
+            return;
+        }
         int current = 0;
         int currentProcessing = 0;
         byte[][] thisByteMaps = new byte[end-start+1][16384];
@@ -129,10 +151,19 @@ public class ImageMap {
                                                 int rDist = r - color.getRed();
                                                 int gDist = g - color.getGreen();
                                                 int bDist = b - color.getBlue();
+                                                double rAvg = (r + color.getRed()) / 2.0;
 
-                                                double colorDistance = rDist * rDist +
-                                                        gDist * gDist +
-                                                        bDist * bDist;
+                                                double colorDistance;
+
+                                                if (LegacyImageMapsConfig.options.useEuclideanDistance) {
+                                                    colorDistance = rDist * rDist +
+                                                            gDist * gDist +
+                                                            bDist * bDist;
+                                                } else {
+                                                    colorDistance = (2.0 + rAvg / 256.0) * rDist * rDist +
+                                                            4.0 * gDist * gDist +
+                                                            (2.0 + (255.0 - rAvg) / 256.0) * bDist * bDist;
+                                                }
 
                                                 if (colorDistance < currentClosestDistance) {
                                                     currentClosestDistance = colorDistance;
@@ -157,7 +188,7 @@ public class ImageMap {
         }
 
         byteMaps = thisByteMaps;
-        notifyServer(new TextComponentTranslation("legacyimagemaps.image_converted_count") + " (" + byteMaps.length + ")");
+        notifyServer(I18n.translateToLocal("legacyimagemaps.image_converted_count") + " (" + byteMaps.length + ")");
     }
 
     public void prepareArray() {
@@ -168,12 +199,17 @@ public class ImageMap {
 
         for (int x = 0; x < imageScaledWidth; x++) {
             for (int y = 0; y < imageScaledHeight; y++) {
-                images[x][y] = imageScaled.getSubimage(x * 128, y * 128, 128, 128);
+                BufferedImage tile = new BufferedImage(128, 128, BufferedImage.TYPE_4BYTE_ABGR);
+                Graphics2D g = tile.createGraphics();
+                g.drawImage(imageScaled, 0, 0, 128, 128, x * 128, y * 128, (x + 1) * 128, (y + 1) * 128, null);
+                g.dispose();
+
+                images[x][y] = tile;
             }
         }
     }
 
-    public boolean scaleImage(int scale, boolean letterbox, boolean preserveTransparency, Color color, boolean test) {
+    public boolean scaleImage(int scale, boolean noLetterbox, boolean removeAlpha, Color color, boolean test) {
         int scaleWidth;
         int scaleHeight;
 
@@ -194,10 +230,10 @@ public class ImageMap {
             scaleWidth = scaledWidthOnMap <= 128 ? 1 : (scaledWidthOnMap % 128 == 0 ? scaledWidthOnMap/128 : (scaledWidthOnMap/128)+1);
         }
 
-        return scaleImage(scaleWidth, scaleHeight, letterbox, preserveTransparency, color, test);
+        return scaleImage(scaleWidth, scaleHeight, noLetterbox, removeAlpha, color, test);
     }
 
-    public boolean scaleImage(int width, int height, boolean letterbox, boolean preserveTransparency, Color color, boolean test) {
+    public boolean scaleImage(int width, int height, boolean noLetterbox, boolean removeAlpha, Color color, boolean test) {
         if (!test) {
             imageScaled = new BufferedImage(width * 128, height * 128, BufferedImage.TYPE_4BYTE_ABGR);
             boolean landscape = image.getWidth() > image.getHeight();
@@ -205,14 +241,15 @@ public class ImageMap {
             int widthTotal = width * 128;
             int heightTotal = height * 128;
 
-            Graphics graphics = imageScaled.createGraphics();
+            Graphics2D graphics = imageScaled.createGraphics();
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-            if (!preserveTransparency) {
+            if (removeAlpha) {
                 graphics.setColor(color);
                 graphics.fillRect(0, 0, width * 128, height * 128);
             }
 
-            if (!letterbox) {
+            if (noLetterbox) {
                 graphics.drawImage(image, 0, 0, widthTotal, heightTotal, null);
             } else {
                 if (landscape) {
@@ -225,16 +262,16 @@ public class ImageMap {
             }
 
             graphics.dispose();
-            notifyServer(new TextComponentTranslation("legacyimagemaps.image_scaled") + " " + imageScaled.getWidth()+"x"+imageScaled.getHeight());
+            notifyServer(I18n.translateToLocal("legacyimagemaps.image_scaled") + " " + imageScaled.getWidth()+"x"+imageScaled.getHeight());
 
             if ((width * height) > maxMapCount) {
-                notifyBoth(new TextComponentTranslation("legacyimagemaps.image_converted_too_big") + " (" + (width*height) + "/" + maxMapCount + ")",true);
+                notifyBoth(I18n.translateToLocal("legacyimagemaps.image_converted_too_big") + " (" + (width*height) + "/" + maxMapCount + ")",true);
                 return false;
             }
 
             return true;
         } else {
-            notifySender(new TextComponentTranslation("legacyimagemaps.image_required_map_count") + " " + width*height);
+            notifySender(I18n.translateToLocal("legacyimagemaps.image_required_map_count") + " " + width*height);
             return false;
         }
     }
@@ -248,7 +285,7 @@ public class ImageMap {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return Base64.getEncoder().encodeToString(digest.digest(((DataBufferByte) imageA.getRaster().getDataBuffer()).getData()));
         } catch (NoSuchAlgorithmException e) {
-            notifyServer(String.valueOf(new TextComponentTranslation("legacyimagemaps.image_missing_hash")));
+            notifyServer(String.valueOf(I18n.translateToLocal("legacyimagemaps.image_missing_hash")));
             return null;
         }
     }
@@ -261,11 +298,17 @@ public class ImageMap {
         this.image = image;
     }
 
-    public boolean downloadImageFromURL(String url) {
+    public boolean downloadImageFromURL(String urlString) {
         HttpURLConnection connection = null;
+        URL url;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
+            url = new URL(urlString);
+            InetAddress address = InetAddress.getByName(url.getHost());
+            if (address.isAnyLocalAddress() || address.isLinkLocalAddress() || address.isSiteLocalAddress() || address.isLoopbackAddress()) {
+                throw new Exception();
+            }
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestProperty("User-Agent", LegacyImageMapsConfig.options.userAgent);
             long connectionSize = connection.getContentLengthLong();
 
             if (!(connectionSize > connectionMaxSize)) {
@@ -275,23 +318,24 @@ public class ImageMap {
                 int imageHeight = image.getHeight();
 
                 if (imageWidth > maxImageDimensions || imageHeight > maxImageDimensions) {
-                    notifyBoth(new TextComponentTranslation("legacyimagemaps.image_too_big") +
-                            " (" + imageWidth + "x" + imageHeight + " / " + maxImageDimensions + "x" + maxImageDimensions + ")",true);
+                    notifyBoth(I18n.translateToLocal("legacyimagemaps.image_too_big") +
+                            " (" + imageWidth + "x" + imageHeight + " / " + maxImageDimensions + "x" + maxImageDimensions + ")", true);
                 }
             } else {
-                notifyBoth(new TextComponentTranslation("legacyimagemaps.file_too_big") + " (" + connectionSize + "/" + connectionMaxSize + ")",true);
+                notifyBoth(I18n.translateToLocal("legacyimagemaps.file_too_big") + " (" + connectionSize + "/" + connectionMaxSize + ")", true);
                 return false;
             }
+            connection.getInputStream().close();
             connection.disconnect();
         } catch (Exception e) {
-            notifyBoth(String.valueOf(new TextComponentTranslation("legacyimagemaps.invalid_image_or_url")),true);
+            notifyBoth(String.valueOf(I18n.translateToLocal("legacyimagemaps.invalid_image_or_url")), true);
             if (connection != null) {
                 connection.disconnect();
             }
             return false;
         }
 
-        notifyServer(new TextComponentTranslation("legacyimagemaps.image_from_url_success") + " (" + url + ")");
+        notifyServer(I18n.translateToLocal("legacyimagemaps.image_from_url_success") + " (" + url + ")");
         return true;
     }
 

@@ -1,7 +1,9 @@
 package nostalgic.legacyimagemaps;
 
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -21,11 +23,12 @@ import java.util.Map;
 
 @Mod(modid = Tags.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION, acceptableRemoteVersions = "*")
 public class LegacyImageMaps {
-
     public static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
     public static File legacyImageMapsDirectory;
     public static File legacyImageMapsByteMapCacheFile;
     public static File legacyImageMapsColorMapCacheFile;
+
+    public static File legacyImageMapsByteMapsToItemStackFile;
 
     /**
      * <a href="https://cleanroommc.com/wiki/forge-mod-development/event#overview">
@@ -81,13 +84,22 @@ public class LegacyImageMaps {
 
         NBTTagCompound byteMapNBT = new NBTTagCompound();
         NBTTagCompound colorMapNBT = new NBTTagCompound();
+        NBTTagCompound byteMapToItemStackMapNBT = new NBTTagCompound();
 
         Map<String, byte[]> byteMapOld;
         Map<Integer, Integer> colorMapOld;
+        Map<Long, ItemStack> byteMapToItemStackMapOld;
 
-        synchronized (CacheAll.infiniteTortureDevice) {
+        synchronized (CacheAll.byteMap) {
             byteMapOld = new HashMap<>(CacheAll.byteMap);
+        }
+
+        synchronized (CacheAll.colorMap) {
             colorMapOld = new HashMap<>(CacheAll.colorMap);
+        }
+
+        synchronized (CacheAll.byteMapToItemStackMap) {
+            byteMapToItemStackMapOld = new HashMap<>(CacheAll.byteMapToItemStackMap);
         }
 
         int[] colorMapKeys = new int[colorMapOld.size()];
@@ -107,6 +119,14 @@ public class LegacyImageMaps {
         colorMapNBT.setIntArray("keys",colorMapKeys);
         colorMapNBT.setIntArray("values",colorMapValues);
 
+        legacyImageMapsByteMapsToItemStackFile = new File(DimensionManager.getCurrentSaveRootDirectory(),"data/itemstack_map.dat");
+
+        i = 0;
+        for (Map.Entry<Long, ItemStack> entry : byteMapToItemStackMapOld.entrySet()) {
+            byteMapToItemStackMapNBT.setTag(String.valueOf(entry.getKey()), entry.getValue().serializeNBT());
+            i++;
+        }
+
         try {
             try (OutputStream output = Files.newOutputStream(legacyImageMapsByteMapCacheFile.toPath())) {
                 CompressedStreamTools.writeCompressed(byteMapNBT, output);
@@ -114,8 +134,30 @@ public class LegacyImageMaps {
             try (OutputStream output = Files.newOutputStream(legacyImageMapsColorMapCacheFile.toPath())) {
                 CompressedStreamTools.writeCompressed(colorMapNBT, output);
             }
+            try (OutputStream output = Files.newOutputStream(legacyImageMapsByteMapsToItemStackFile.toPath())) {
+                CompressedStreamTools.writeCompressed(byteMapToItemStackMapNBT, output);
+            }
         } catch (IOException e) {
             LOGGER.error(e);
+        }
+    }
+
+    @SubscribeEvent
+    public void localCacheLoad (WorldEvent.Load event) {
+        if (event.getWorld().provider.getDimension() != 0) return;
+
+        legacyImageMapsByteMapsToItemStackFile = new File(DimensionManager.getCurrentSaveRootDirectory(),"data/itemstack_map.dat");
+        CacheAll.byteMapToItemStackMap.clear();
+
+        if (legacyImageMapsByteMapsToItemStackFile.exists()) {
+            try {
+                NBTTagCompound byteMapCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsByteMapsToItemStackFile.toPath()));
+                for (String key : byteMapCompound.getKeySet()) {
+                    CacheAll.byteMapToItemStackMap.put(Long.valueOf(key),new ItemStack(byteMapCompound.getCompoundTag(key)));
+                }
+            } catch (IOException e) {
+                LOGGER.error(e);
+            }
         }
     }
 }
