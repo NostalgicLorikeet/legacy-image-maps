@@ -7,11 +7,16 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 public class ImageMapUtils {
     private static final String namespace = LegacyImageMapsConfig.options.customMapBaseItemID.substring(0,LegacyImageMapsConfig.options.customMapBaseItemID.indexOf(':'));
     private static final String name = LegacyImageMapsConfig.options.customMapBaseItemID.substring(LegacyImageMapsConfig.options.customMapBaseItemID.indexOf(':')+1);
     public static final ResourceLocation customMapBaseItemRegistry = new ResourceLocation(namespace,name);
+
     public static long lastRequestTime = 0;
+
+    public static ConcurrentHashMap<String, Integer> playerNewItemStackCount = new ConcurrentHashMap<>();
 
     public static void convertFilledMapToEmptyMap(EntityPlayer player) {
         if (!player.getEntityWorld().isRemote) {

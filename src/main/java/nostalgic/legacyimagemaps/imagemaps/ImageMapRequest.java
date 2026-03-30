@@ -181,7 +181,7 @@ public class ImageMapRequest {
                                         if (((EntityPlayer) sender).isDead || senderPlayer == null) {
                                             break;
                                         }
-                                        if (!senderPlayer.inventory.addItemStackToInventory(map)) {
+                                        if (LegacyImageMapsConfig.options.dropMaps || !senderPlayer.inventory.addItemStackToInventory(map)) {
                                             senderPlayer.dropItem(map, false);
                                         }
                                     } else {

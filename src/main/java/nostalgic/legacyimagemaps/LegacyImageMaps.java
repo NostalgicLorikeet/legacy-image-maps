@@ -12,6 +12,7 @@ import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import nostalgic.legacyimagemaps.command.CommandImageMap;
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
+import nostalgic.legacyimagemaps.imagemaps.ImageMapUtils;
 import nostalgic.legacyimagemaps.imagemaps.cache.CacheAll;
 import nostalgic.legacyimagemaps.legacyimagemaps.Tags;
 import org.apache.logging.log4j.LogManager;
@@ -21,6 +22,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Mod(modid = Tags.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION, acceptableRemoteVersions = "*")
 public class LegacyImageMaps {
@@ -30,6 +32,7 @@ public class LegacyImageMaps {
     public static File legacyImageMapsColorMapCacheFile;
 
     public static File legacyImageMapsByteMapsToItemStackFile;
+    public static File legacyImageMapsPlayerItemStackCountFile;
 
     /**
      * <a href="https://cleanroommc.com/wiki/forge-mod-development/event#overview">
@@ -152,13 +155,27 @@ public class LegacyImageMaps {
                 LOGGER.error(e);
             }
         }
+        legacyImageMapsPlayerItemStackCountFile = new File(DimensionManager.getCurrentSaveRootDirectory(), "data/player_map_counts.dat");
+
+        NBTTagCompound playerMapCountsNBT = new NBTTagCompound();
+
+        for (Map.Entry<String, Integer> entry : ImageMapUtils.playerNewItemStackCount.entrySet()) {
+            playerMapCountsNBT.setInteger(entry.getKey(),entry.getValue());
+        }
+
+        try {
+            try (OutputStream output = Files.newOutputStream(legacyImageMapsPlayerItemStackCountFile.toPath())) {
+                CompressedStreamTools.writeCompressed(playerMapCountsNBT, output);
+            }
+        } catch (IOException e) {
+            LOGGER.error(e);
+        }
     }
 
     @SubscribeEvent
     public void localCacheLoad (WorldEvent.Load event) {
+        if (event.getWorld().provider.getDimension() != 0) return;
         if (LegacyImageMapsConfig.options.saveItemStackCacheToDisk) {
-            if (event.getWorld().provider.getDimension() != 0) return;
-
             legacyImageMapsByteMapsToItemStackFile = new File(DimensionManager.getCurrentSaveRootDirectory(), "data/itemstack_map.dat");
             CacheAll.byteMapToItemStackMap.clear();
 
@@ -171,6 +188,18 @@ public class LegacyImageMaps {
                 } catch (IOException e) {
                     LOGGER.error(e);
                 }
+            }
+        }
+        legacyImageMapsPlayerItemStackCountFile = new File(DimensionManager.getCurrentSaveRootDirectory(), "data/player_map_counts.dat");
+
+        if (legacyImageMapsPlayerItemStackCountFile.exists()) {
+            try {
+                NBTTagCompound playerItemStackCountCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsPlayerItemStackCountFile.toPath()));
+                for (String key : playerItemStackCountCompound.getKeySet()) {
+                    ImageMapUtils.playerNewItemStackCount.put(key,playerItemStackCountCompound.getInteger(key));
+                }
+            } catch (IOException e) {
+                LOGGER.error(e);
             }
         }
     }

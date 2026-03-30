@@ -4,6 +4,7 @@ import com.google.common.hash.Hashing;
 import ditherer.Ditherer;
 import net.minecraft.block.material.MapColor;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.Style;
@@ -28,7 +29,6 @@ import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
-import java.time.Instant;
 import java.util.Base64;
 
 public class ImageMap {
@@ -55,6 +55,11 @@ public class ImageMap {
     //do NOT run this off thread, it can and probably will crash the game with concurrent modification, or be a duplication exploit
     public ItemStack[] convertByteArraysToItemStacks() {
         World world = sender.getEntityWorld();
+        String uuid = "";
+        Boolean isPlayer = sender instanceof EntityPlayer;
+        if (isPlayer) {
+            uuid = ((EntityPlayer) sender).getUniqueID().toString();
+        }
 
         maps = new ItemStack[byteMaps.length];
 
@@ -65,6 +70,16 @@ public class ImageMap {
             if (CacheAll.byteMapToItemStackMap.containsKey(hash)) {
                 imageMapItem = CacheAll.byteMapToItemStackMap.get(hash).copy();
             } else {
+                if (isPlayer && LegacyImageMapsConfig.options.useMaxPerPlayerMapCount) {
+                    if (!sender.getServer().getPlayerList().canSendCommands(((EntityPlayer) sender).getGameProfile())) {
+                        if (ImageMapUtils.playerNewItemStackCount.containsKey(uuid)) {
+                            if (ImageMapUtils.playerNewItemStackCount.get(uuid) >= LegacyImageMapsConfig.options.maxPerPlayerMapCount) {
+                                notifySender(I18n.translateToLocalFormatted("legacyimagemaps.maps_max",LegacyImageMapsConfig.options.maxPerPlayerMapCount),true);
+                                break;
+                            }
+                        }
+                    }
+                }
                 imageMapItem = new ItemStack(Items.FILLED_MAP);
                 int imageMapId = world.getMapStorage().getUniqueDataId("map");
                 String imageMapName = "map_" + imageMapId;
@@ -81,7 +96,14 @@ public class ImageMap {
                 //if (LegacyImageMapsConfig.options.giveMapsCoordNames) {
                 //    imageMapItem.setStackDisplayName("ImageMap " + x + "," + y);
                 //}
+                if (isPlayer && LegacyImageMapsConfig.options.useMaxPerPlayerMapCount) {
+                    ImageMapUtils.playerNewItemStackCount.put(uuid, ImageMapUtils.playerNewItemStackCount.getOrDefault(uuid, 0) + 1);
+                }
                 CacheAll.byteMapToItemStackMap.put(hash, imageMapItem.copy());
+            }
+
+            if (isPlayer && LegacyImageMapsConfig.options.useMaxPerPlayerMapCount && LegacyImageMapsConfig.options.maxPerPlayerMapCountCountAllMaps) {
+                ImageMapUtils.playerNewItemStackCount.put(uuid, ImageMapUtils.playerNewItemStackCount.getOrDefault(uuid, 0) + 1);
             }
 
             maps[i] = imageMapItem;
