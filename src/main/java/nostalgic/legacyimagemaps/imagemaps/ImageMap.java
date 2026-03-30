@@ -30,13 +30,13 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 public class ImageMap {
-    public static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
-    public static final long connectionMaxSize = LegacyImageMapsConfig.options.maxImageSize;
-    public static final int maxImageDimensions = LegacyImageMapsConfig.options.maxImageDimensions;
-    public static final int mapItemDimension = LegacyImageMapsConfig.options.mapItemDimension;
-    public static final int maxMapCount = LegacyImageMapsConfig.options.maxMapCount;
-    public static final Ditherer ditherer = new Ditherer(PaletteHolder.ditheringPalette);
-    public final ICommandSender sender;
+    static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
+    static final long connectionMaxSize = LegacyImageMapsConfig.options.maxImageSize;
+    static final int maxImageDimensions = LegacyImageMapsConfig.options.maxImageDimensions;
+    static final int mapItemDimension = LegacyImageMapsConfig.options.mapItemDimension;
+    static final int maxMapCount = LegacyImageMapsConfig.options.maxMapCount;
+    static final Ditherer ditherer = new Ditherer(PaletteHolder.ditheringPalette);
+    final ICommandSender sender;
 
     BufferedImage image;
     BufferedImage imageScaled;
@@ -44,21 +44,19 @@ public class ImageMap {
     byte[][] byteMaps;
     ItemStack[] maps;
 
+    public int realStart;
+
     public ImageMap(ICommandSender sender) {
         this.sender = sender;
     }
 
     //do NOT run this off thread, it can and probably will crash the game with concurrent modification, or be a duplication exploit
     public ItemStack[] convertByteArraysToItemStacks() {
-        return convertByteArraysToItemStacks(byteMaps.length);
-    }
-
-    public ItemStack[] convertByteArraysToItemStacks(int limit) {
         World world = sender.getEntityWorld();
 
-        maps = new ItemStack[Math.min(byteMaps.length,limit)];
+        maps = new ItemStack[byteMaps.length];
 
-        for (int i = 0; i < byteMaps.length && i < limit; i++) {
+        for (int i = 0; i < byteMaps.length; i++) {
             long hash = Hashing.murmur3_128().hashBytes(byteMaps[i]).asLong();
             ItemStack imageMapItem;
 
@@ -192,6 +190,8 @@ public class ImageMap {
 
         byteMaps = thisByteMaps;
         notifyServer(I18n.translateToLocal("legacyimagemaps.image_converted_count") + " (" + byteMaps.length + ")");
+
+        realStart = start;
     }
 
     public int getImageSegmentArrayMaxValue() {

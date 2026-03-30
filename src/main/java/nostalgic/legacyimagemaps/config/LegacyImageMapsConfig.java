@@ -57,6 +57,14 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Whether to use up empty maps from the player's inventory when run in survival mode.", "Default: true"})
         public boolean survivalUseUpEmptyMaps = true;
 
+        @Config.Comment({"Allow players to clear held maps using \"/imagemap unfill\".", "Default: false"})
+        public boolean clearMapsUsingCommand = false;
+
+        @Config.Comment({"Use a different item as a base for image maps. Set damage value to -1 for any.", "Default: false"})
+        public boolean useCustomMapBaseType = false;
+        public String customMapBaseItemID = "minecraft:flint";
+        public int customMapBaseItemDamage = -1;
+
         //@Config.Comment({"Give a name with coordinates to produced maps. These will show up when hovered over on Item Frames so it may be distracting.", "Default: false"})
         //public boolean giveMapsCoordNames = false;
     }

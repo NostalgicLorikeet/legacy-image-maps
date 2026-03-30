@@ -2,7 +2,12 @@ package nostalgic.legacyimagemaps.imagemaps;
 
 import net.minecraft.block.Block;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
 
@@ -122,10 +127,49 @@ public class ImageMapRequest {
                             end = imagemap.getImageSegmentArrayMaxValue();
                         }
                         imagemap.convertImagesToByteArray(start, end, transparencyThreshold);
-                        sender.getEntityWorld().getMinecraftServer().addScheduledTask(() -> {
+                        sender.getServer().addScheduledTask(() -> {
+                            int realStart = imagemap.realStart;
                             maps = imagemap.convertByteArraysToItemStacks();
+                            boolean isPlayer = sender instanceof EntityPlayer;
+                            boolean isPlayerMP = sender instanceof EntityPlayerMP;
+                            boolean isSurvival = false;
+                            if (isPlayer) {
+                                isSurvival = !((EntityPlayer) sender).isCreative();
+                            }
                             for (ItemStack map : maps) {
+                                if (isSurvival && LegacyImageMapsConfig.options.survivalUseUpEmptyMaps) {
+                                    boolean hasRequiredItem = false;
+                                    ItemStack emptyMap = null;
+                                    for (ItemStack stack : ((EntityPlayer) sender).inventory.mainInventory) {
+                                        if (!stack.isEmpty() && (LegacyImageMapsConfig.options.useCustomMapBaseType ?
+                                                stack.getItem().getRegistryName().equals(ImageMapUtils.customMapBaseItemRegistry) && (
+                                                        LegacyImageMapsConfig.options.customMapBaseItemDamage < 0 ||
+                                                        stack.getItemDamage() == LegacyImageMapsConfig.options.customMapBaseItemDamage)
+                                                : stack.getItem() == Items.MAP && stack.getMetadata() == 0)) {
+                                            hasRequiredItem = true;
+                                            emptyMap = stack;
+                                            break;
+                                        }
+                                    }
+                                    if (hasRequiredItem) {
+                                        emptyMap.shrink(1);
+                                    } else {
+                                        imagemap.notifySender(I18n.translateToLocal("legacyimagemaps.insufficient_map_count") + " " + realStart,true);
+                                        break;
+                                    }
+                                }
+                                if (isPlayer) {
+                                    if (((EntityPlayer) sender).isDead) {
+                                        break;
+                                    }
+                                }
+                                if (isPlayerMP) {
+                                    if (((EntityPlayerMP) sender).connection == null) {
+                                        break;
+                                    }
+                                }
                                 Block.spawnAsEntity(world,sender.getPosition(),map);
+                                realStart++;
                             }
                         });
                     }
