@@ -51,6 +51,12 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Whether to allow dithering as an option for imagemaps.", "Default: true"})
         public boolean allowDithering = true;
 
+        @Config.Comment({"Minimum server permission level required to use the command.", "Default: 2"})
+        public int minimumPermissionLevelRequired = 2;
+
+        @Config.Comment({"Whether to use up empty maps from the player's inventory when run in survival mode.", "Default: true"})
+        public boolean survivalUseUpEmptyMaps = true;
+
         //@Config.Comment({"Give a name with coordinates to produced maps. These will show up when hovered over on Item Frames so it may be distracting.", "Default: false"})
         //public boolean giveMapsCoordNames = false;
     }

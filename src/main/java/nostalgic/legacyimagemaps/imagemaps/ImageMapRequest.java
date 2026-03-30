@@ -4,8 +4,11 @@ import net.minecraft.block.Block;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
+import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
 
+import javax.swing.text.html.StyleSheet;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -23,27 +26,102 @@ public class ImageMapRequest {
 
         if (!world.isRemote) {
             THREAD_POOL.execute(() -> {
-                String url = args[0];
-                int scale = 1;
-                int width = -1;
-                int height = -1;
-                int start;
-                int end;
-                int transparencyThreshold;
-                Boolean noLetterbox = false;
-                Boolean test = false;
-                Boolean removeAlpha = false;
+                String url = "";
+                int scale = -1;
+                int width;
+                int height;
+                int start = 0;
+                int end = -1;
+                int transparencyThreshold = LegacyImageMapsConfig.options.transparencyThreshold;
+                boolean noLetterbox = false;
+                boolean removeAlpha = false;
                 Color color = Color.decode("#000000");
+                boolean test = false;
+                boolean dither = false;
 
+                ArrayList<String> validFlags = new ArrayList<>();
+                validFlags.add("NOLETTERBOX");
+                validFlags.add("REMOVEALPHA");
+                validFlags.add("TEST");
+                validFlags.add("DITHER");
+                Integer[] intOptions = new Integer[3];
+                int intCount = 0;
+                boolean scaled = false;
+                for (int i = 0; i < args.length; i++) {
+                    if (i == 0) {
+                        url = args[i];
+                    } else {
+                        if (validFlags.contains(args[i].toUpperCase())) {
+                            switch (args[i].toUpperCase()) {
+                                case("NOLETTERBOX"): noLetterbox = true; break;
+                                case("REMOVEALPHA"): removeAlpha = true; break;
+                                case("TEST"): test = true; break;
+                                case("DITHER"): dither = true; break;
+                            }
+                        } else {
+                            if (args[i].equals("scale")) {
+                                scaled = true;
+                            }
+                            if (args[i].chars().allMatch(Character::isDigit)) {
+                                intOptions[intCount] = Integer.valueOf(args[i]);
+                                intCount++;
+                            }
+                            if (args[i].startsWith("start=")) {
+                                start = Integer.parseInt(args[i].substring(6));
+                            }
+                            if (args[i].startsWith("end=")) {
+                                end = Integer.parseInt(args[i].substring(4));
+                            }
+                        }
+                        if (removeAlpha && i == args.length - 1) {
+                            try {
+                                color = Color.decode(args[i]);
+                            } catch(Exception e) {
+                                try {
+                                    color = new StyleSheet().stringToColor(args[i]);
+                                } catch(Exception a) {
+                                    color = Color.decode("#000000");
+                                }
+                            }
+                        }
+                    }
+                }
+                if (scaled) {
+                    height = -1;
+                    width = -1;
+                    scale = intOptions[0];
+                    if (intOptions[1] != null) {
+                        transparencyThreshold = intOptions[1];
+                    }
+                } else {
+                    if (intOptions[0] != null && intOptions[1] != null) {
+                        width = intOptions[0];
+                        height = intOptions[1];
+                        if (intOptions[2] != null) {
+                            transparencyThreshold = intOptions[2];
+                        }
+                    } else {
+                        height = -1;
+                        width = -1;
+                        if (intOptions[0] != null) {
+                            transparencyThreshold = intOptions[0];
+                        }
+                    }
+                }
+                if (scale == -1) {
+                    scale = 1;
+                }
                 if (imagemap.downloadImageFromURL(url)) {
-                    if ((width == -1 && height == -1) ?
-                            imagemap.scaleImage(scale, noLetterbox, removeAlpha, color, test) :
-                            imagemap.scaleImage(width, height, noLetterbox, removeAlpha, color, test)
-                        ) {
-                        imagemap.dither();
+                    if ((width == -1 && height == -1) ? imagemap.scaleImage(scale, noLetterbox, removeAlpha, color, test) :
+                                                        imagemap.scaleImage(width, height, noLetterbox, removeAlpha, color, test)) {
+                        if (dither) {
+                            imagemap.dither();
+                        }
                         imagemap.prepareArray();
-                        imagemap.convertImagesToByteArray();
-
+                        if (end == -1) {
+                            end = imagemap.getImageSegmentArrayMaxValue();
+                        }
+                        imagemap.convertImagesToByteArray(start, end, transparencyThreshold);
                         sender.getEntityWorld().getMinecraftServer().addScheduledTask(() -> {
                             maps = imagemap.convertByteArraysToItemStacks();
                             for (ItemStack map : maps) {

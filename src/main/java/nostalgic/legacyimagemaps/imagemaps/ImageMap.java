@@ -63,7 +63,7 @@ public class ImageMap {
             ItemStack imageMapItem;
 
             if (CacheAll.byteMapToItemStackMap.containsKey(hash)) {
-                imageMapItem = CacheAll.byteMapToItemStackMap.get(hash);
+                imageMapItem = CacheAll.byteMapToItemStackMap.get(hash).copy();
             } else {
                 imageMapItem = new ItemStack(Items.FILLED_MAP);
                 int imageMapId = world.getMapStorage().getUniqueDataId("map");
@@ -81,7 +81,7 @@ public class ImageMap {
                 //if (LegacyImageMapsConfig.options.giveMapsCoordNames) {
                 //    imageMapItem.setStackDisplayName("ImageMap " + x + "," + y);
                 //}
-                CacheAll.byteMapToItemStackMap.put(hash, imageMapItem);
+                CacheAll.byteMapToItemStackMap.put(hash, imageMapItem.copy());
             }
 
             maps[i] = imageMapItem;
@@ -103,18 +103,20 @@ public class ImageMap {
     }
 
     public void convertImagesToByteArray(int start, int end, int transparencyThreshold) {
-        if (end < start) {
-            return;
+        if (start > end) {
+            start = 0;
+            end = this.getImageSegmentArrayMaxValue();
         }
-        int current = 0;
-        int currentProcessing = 0;
-        byte[][] thisByteMaps = new byte[end-start+1][16384];
         if (start < 0) {
             start = 0;
         }
-        if (end > thisByteMaps.length-1) {
-            end = thisByteMaps.length-1;
+        if (end > this.getImageSegmentArrayMaxValue()) {
+            end = this.getImageSegmentArrayMaxValue();
         }
+
+        int current = 0;
+        int currentProcessing = 0;
+        byte[][] thisByteMaps = new byte[end-start+1][16384];
 
         for (int x = 0; x < images.length; x++) {
             for (int y = 0; y < images[x].length; y++) {
@@ -192,6 +194,10 @@ public class ImageMap {
         notifyServer(I18n.translateToLocal("legacyimagemaps.image_converted_count") + " (" + byteMaps.length + ")");
     }
 
+    public int getImageSegmentArrayMaxValue() {
+        return (images.length*images[0].length)-1;
+    }
+
     public void prepareArray() {
         int imageScaledWidth = imageScaled.getWidth()/128;
         int imageScaledHeight = imageScaled.getHeight()/128;
@@ -259,13 +265,15 @@ public class ImageMap {
             if (noLetterbox) {
                 graphics.drawImage(image, 0, 0, widthTotal, heightTotal, null);
             } else {
-                if (landscape) {
-                    double heightFinal = ((double) widthTotal/image.getWidth())*image.getHeight();
-                    graphics.drawImage(image, 0, (heightTotal - (int)heightFinal)/2, widthTotal, (int)heightFinal, null);
-                } else {
-                    double widthFinal = ((double) heightTotal/image.getHeight())*image.getWidth();
-                    graphics.drawImage(image, (widthTotal - (int)widthFinal)/2, 0, (int)widthFinal, heightTotal, null);
-                }
+                double scaleWidth = (double) widthTotal / image.getWidth();
+                double scaleHeight = (double) heightTotal / image.getHeight();
+                double scale = Math.min(scaleWidth, scaleHeight);
+                int finalW = (int) (image.getWidth() * scale);
+                int finalH = (int) (image.getHeight() * scale);
+                int x = (widthTotal - finalW) / 2;
+                int y = (heightTotal - finalH) / 2;
+
+                graphics.drawImage(image, x, y, finalW, finalH, null);
             }
 
             graphics.dispose();
