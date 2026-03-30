@@ -128,13 +128,15 @@ public class ImageMapRequest {
                         }
                         imagemap.convertImagesToByteArray(start, end, transparencyThreshold);
                         sender.getServer().addScheduledTask(() -> {
-                            int realStart = imagemap.realStart;
+                            int pos = imagemap.realStart;
+                            EntityPlayer senderPlayer = null;
                             maps = imagemap.convertByteArraysToItemStacks();
                             boolean isPlayer = sender instanceof EntityPlayer;
                             boolean isPlayerMP = sender instanceof EntityPlayerMP;
                             boolean isSurvival = false;
                             if (isPlayer) {
-                                isSurvival = !((EntityPlayer) sender).isCreative();
+                                senderPlayer = (EntityPlayer) sender;
+                                isSurvival = !senderPlayer.isCreative();
                             }
                             for (ItemStack map : maps) {
                                 if (isSurvival && LegacyImageMapsConfig.options.survivalUseUpEmptyMaps) {
@@ -158,18 +160,22 @@ public class ImageMapRequest {
                                         break;
                                     }
                                 }
-                                if (isPlayer) {
-                                    if (((EntityPlayer) sender).isDead) {
-                                        break;
-                                    }
-                                }
                                 if (isPlayerMP) {
                                     if (((EntityPlayerMP) sender).connection == null) {
                                         break;
                                     }
                                 }
-                                Block.spawnAsEntity(world,sender.getPosition(),map);
-                                realStart++;
+                                if (isPlayer) {
+                                    if (((EntityPlayer) sender).isDead || senderPlayer == null) {
+                                        break;
+                                    }
+                                    if (!senderPlayer.inventory.addItemStackToInventory(map)) {
+                                        senderPlayer.dropItem(map, false);
+                                    }
+                                } else {
+                                    Block.spawnAsEntity(world, sender.getPosition(), map);
+                                }
+                                pos++;
                             }
                         });
                     }
