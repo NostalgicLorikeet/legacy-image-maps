@@ -27,6 +27,8 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.DecimalFormat;
+import java.time.Instant;
 import java.util.Base64;
 
 public class ImageMap {
@@ -352,6 +354,10 @@ public class ImageMap {
 
         notifyServer(I18n.translateToLocal("legacyimagemaps.image_from_url_success") + " (" + url + ")");
         return true;
+    }
+
+    public void notifyWait(long time) {
+        notifySender(I18n.translateToLocalFormatted("legacyimagemaps.wait",new DecimalFormat("#.#").format((double)time/1000)));
     }
 
     public void notifySender(String message) {
