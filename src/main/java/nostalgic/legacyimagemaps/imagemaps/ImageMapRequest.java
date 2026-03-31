@@ -6,6 +6,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
@@ -18,18 +19,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ImageMapRequest {
-    private static final ExecutorService THREAD_POOL = Executors.newFixedThreadPool(2);
-    private final World world;
-    private final ICommandSender sender;
-    private final ImageMap imagemap;
+    private static final ExecutorService THREAD_POOL = Executors.newFixedThreadPool(LegacyImageMapsConfig.options.threadCount);
+    private World world;
+    private ImageMap imagemap;
     private ItemStack[] maps;
     private static final long requiredRequestInterval = LegacyImageMapsConfig.options.requiredRequestInterval;
 
     public ImageMapRequest(ICommandSender sender, String[] args) {
+        run(sender, args);
+    }
+
+    private void run(ICommandSender sender, String[] args) {
+        long startT = System.nanoTime();
         world = sender.getEntityWorld();
         imagemap = new ImageMap(sender);
-        this.sender = sender;
-
         if (!world.isRemote) {
             THREAD_POOL.execute(() -> {
                 long now = Instant.now().toEpochMilli();
@@ -47,7 +50,6 @@ public class ImageMapRequest {
                     Color color = Color.decode("#000000");
                     boolean test = false;
                     boolean dither = false;
-
                     ArrayList<String> validFlags = new ArrayList<>();
                     validFlags.add("NOLETTERBOX");
                     validFlags.add("REMOVEALPHA");
@@ -139,6 +141,8 @@ public class ImageMapRequest {
                                 end = imagemap.getImageSegmentArrayMaxValue();
                             }
                             imagemap.convertImagesToByteArray(start, end, transparencyThreshold);
+                            int timeT = Math.toIntExact((System.nanoTime() - startT) / 1_000_000);
+                            sender.sendMessage(new TextComponentString(String.valueOf(timeT)));
                             sender.getServer().addScheduledTask(() -> {
                                 int pos = imagemap.realStart;
                                 EntityPlayer senderPlayer = null;

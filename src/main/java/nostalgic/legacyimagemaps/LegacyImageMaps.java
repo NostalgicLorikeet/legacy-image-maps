@@ -54,6 +54,10 @@ public class LegacyImageMaps {
             legacyImageMapsDownloadedImagesList = new File(legacyImageMapsDownloadedImagesFolder,"downloads.dat");
             legacyImageMapsCacheWarning = new File(legacyImageMapsDownloadedImagesFolder,"DO_NOT_PUT_ANYTHING_IN_HERE_IT_WILL_BE_DELETED");
 
+            if (!legacyImageMapsDirectory.exists()) {
+                legacyImageMapsDirectory.mkdir();
+            }
+
             if (LegacyImageMapsConfig.options.cacheDownloadedImages) {
                 if (!legacyImageMapsDownloadedImagesFolder.exists()) {
                     legacyImageMapsDownloadedImagesFolder.mkdir();
@@ -96,10 +100,6 @@ public class LegacyImageMaps {
                 }
             }
 
-            if (!legacyImageMapsDirectory.exists()) {
-                legacyImageMapsDirectory.mkdir();
-            }
-
             if (legacyImageMapsByteMapCacheFile.exists()) {
                 try {
                     NBTTagCompound byteMapCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsByteMapCacheFile.toPath()));
@@ -137,6 +137,9 @@ public class LegacyImageMaps {
     @SubscribeEvent
     public void cacheSave(WorldEvent.Save event) {
         if (event.getWorld().provider.getDimension() != 0) return;
+        if (!legacyImageMapsDirectory.exists()) {
+            legacyImageMapsDirectory.mkdir();
+        }
         CompletableFuture.runAsync(() -> {
             if (LegacyImageMapsConfig.options.saveCacheToDisk) {
                 NBTTagCompound byteMapNBT = new NBTTagCompound();

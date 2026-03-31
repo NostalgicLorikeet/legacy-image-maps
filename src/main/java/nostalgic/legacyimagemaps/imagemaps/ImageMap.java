@@ -26,6 +26,7 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URI;
@@ -362,7 +363,9 @@ public class ImageMap {
             long connectionSize = connection.getContentLengthLong();
 
             if (!(connectionSize > connectionMaxSize)) {
-                image = ImageIO.read(connection.getInputStream());
+                try(InputStream imageInputStream = connection.getInputStream()) {
+                    image = ImageIO.read(imageInputStream);
+                }
 
                 int imageWidth = image.getWidth();
                 int imageHeight = image.getHeight();

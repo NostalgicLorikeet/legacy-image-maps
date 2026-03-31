@@ -59,7 +59,7 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Alpha threshold at which a pixel should be rendered as transparent on an image map.", "This can be altered on a per-image basis on player request", "Default: 127"})
         public int transparencyThreshold = 127;
 
-        @Config.Comment({"Whether to use standard Euclidean distance for RGB->map colors instead of Redmean.", "When changing this you should delete the \"colormap_cache.dat\" file in the LegacyImageMaps directory under Minecraft's root", "Default: false"})
+        @Config.Comment({"Whether to use standard Euclidean distance for RGB->map colors instead of Redmean.", "When changing this you should run \"/imagemap clear colormaps\" to clear the color byte cache", "Default: false"})
         public boolean useEuclideanDistance = false;
 
         @Config.Comment({"Whether to allow dithering as an option for imagemaps.", "Default: true"})
@@ -104,6 +104,9 @@ public final class LegacyImageMapsConfig
 
         @Config.Comment({"Save the byte map->item stack cache to disk with the world.", "Default: true"})
         public boolean saveItemStackCacheToDisk = true;
+
+        @Config.Comment({"Number of thread available for image processing.", "Default: 2"})
+        public int threadCount = 2;
 
         //@Config.Comment({"Give a name with coordinates to produced maps. These will show up when hovered over on Item Frames so it may be distracting.", "Default: false"})
         //public boolean giveMapsCoordNames = false;
