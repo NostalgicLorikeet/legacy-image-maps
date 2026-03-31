@@ -13,3 +13,4 @@ legacyimagemaps.maps_max=You have hit the maximum number of image maps allowed o
 legacyimagemaps.image_save_fail=Failed to save image.
 legacyimagemaps.image_retrieved_cache=Successfully retrieved image of hash %s from local cache instead of redownloading
 legacyimagemaps.image_retrieve_fail=Failed to retrieve image from cache, redownloading
+legacyimagemaps.image_time=Image processing took %sms

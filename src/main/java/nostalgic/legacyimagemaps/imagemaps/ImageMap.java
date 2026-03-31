@@ -7,6 +7,7 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
@@ -50,6 +51,7 @@ public class ImageMap {
     ItemStack[] maps;
 
     public int realStart;
+    boolean dithered = false;
 
     public ImageMap(ICommandSender sender) {
         this.sender = sender;
@@ -101,6 +103,11 @@ public class ImageMap {
                 //}
                 if (isPlayer && LegacyImageMapsConfig.options.useMaxPerPlayerMapCount) {
                     ImageMapUtils.playerNewItemStackCount.put(uuid, ImageMapUtils.playerNewItemStackCount.getOrDefault(uuid, 0) + 1);
+                }
+                if (LegacyImageMapsConfig.options.addHasImageMapBoolToNBT) {
+                    NBTTagCompound mapTag = new NBTTagCompound();
+                    mapTag.setBoolean("isImageMap", true);
+                    imageMapItem.setTagCompound(mapTag);
                 }
                 CacheAll.byteMapToItemStackMap.put(hash, imageMapItem.copy());
             }
@@ -162,44 +169,45 @@ public class ImageMap {
                                 double currentClosestDistance = Double.MAX_VALUE;
                                 int colorClosest = 0;
 
-                                if (a <= transparencyThreshold) {
-                                    colorClosest = 0;
-                                } else {
-                                    Color colorAsColor = new Color(r, g, b);
-
-                                    if (CacheAll.colorMap.containsKey(colorAsColor.getRGB())) {
-                                        colorClosest = CacheAll.colorMap.get(colorAsColor.getRGB());
+                                if (a > transparencyThreshold) {
+                                    int color24 = clr & 0x00FFFFFF;
+                                    if (PaletteHolder.ditherIntMap.containsKey(color24)) {
+                                        colorClosest = PaletteHolder.ditherIntMap.get(color24);
                                     } else {
-                                        for (MapColor colorCompare : MapColor.COLORS) {
-                                            if (colorCompare == null || colorCompare == MapColor.AIR) continue;
+                                        if (CacheAll.colorMap.containsKey(color24)) {
+                                            colorClosest = CacheAll.colorMap.get(color24);
+                                        } else {
+                                            for (MapColor colorCompare : MapColor.COLORS) {
+                                                if (colorCompare == null || colorCompare == MapColor.AIR) continue;
 
-                                            for (int i = 0; i < 4; i++) {
-                                                Color color = new Color(colorCompare.getMapColor(i));
+                                                for (int i = 0; i < 4; i++) {
+                                                    Color color = new Color(ImageMapUtils.getMapColor(colorCompare, i));
 
-                                                int rDist = r - color.getRed();
-                                                int gDist = g - color.getGreen();
-                                                int bDist = b - color.getBlue();
-                                                double rAvg = (r + color.getRed()) / 2.0;
+                                                    int rDist = r - color.getRed();
+                                                    int gDist = g - color.getGreen();
+                                                    int bDist = b - color.getBlue();
+                                                    double rAvg = (r + color.getRed()) / 2.0;
 
-                                                double colorDistance;
+                                                    double colorDistance;
 
-                                                if (LegacyImageMapsConfig.options.useEuclideanDistance) {
-                                                    colorDistance = rDist * rDist +
-                                                            gDist * gDist +
-                                                            bDist * bDist;
-                                                } else {
-                                                    colorDistance = (2.0 + rAvg / 256.0) * rDist * rDist +
-                                                            4.0 * gDist * gDist +
-                                                            (2.0 + (255.0 - rAvg) / 256.0) * bDist * bDist;
-                                                }
+                                                    if (LegacyImageMapsConfig.options.useEuclideanDistance) {
+                                                        colorDistance = rDist * rDist +
+                                                                gDist * gDist +
+                                                                bDist * bDist;
+                                                    } else {
+                                                        colorDistance = (2.0 + rAvg / 256.0) * rDist * rDist +
+                                                                4.0 * gDist * gDist +
+                                                                (2.0 + (255.0 - rAvg) / 256.0) * bDist * bDist;
+                                                    }
 
-                                                if (colorDistance < currentClosestDistance) {
-                                                    currentClosestDistance = colorDistance;
-                                                    colorClosest = (colorCompare.colorIndex * 4 + i);
+                                                    if (colorDistance < currentClosestDistance) {
+                                                        currentClosestDistance = colorDistance;
+                                                        colorClosest = (colorCompare.colorIndex * 4 + i);
+                                                    }
                                                 }
                                             }
+                                            CacheAll.colorMap.put(color24, colorClosest);
                                         }
-                                        CacheAll.colorMap.put(colorAsColor.getRGB(), colorClosest);
                                     }
                                 }
                                 colors[(pixelY * 128) + pixelX] = (byte) colorClosest;
@@ -246,6 +254,7 @@ public class ImageMap {
     public void dither() {
         if (LegacyImageMapsConfig.options.allowDithering) {
             ditherer.dither(imageScaled);
+            dithered = true;
         }
     }
 
@@ -344,8 +353,13 @@ public class ImageMap {
             if (CacheAll.downloadedImageCache.containsKey(uriString) && LegacyImageMapsConfig.options.cacheDownloadedImages) {
                 try {
                     String localHash = CacheAll.downloadedImageCache.get(uriString);
-                    image = ImageIO.read(new File(LegacyImageMaps.legacyImageMapsDownloadedImagesFolder, CacheAll.downloadedImageCache.get(uriString)));
-                    notifyServer(I18n.translateToLocalFormatted("legacyimagemaps.image_retrieved_cache",localHash));
+                    if (CacheAll.runtimeImageCache.containsKey(localHash)) {
+                        image = CacheAll.runtimeImageCache.get(localHash);
+                    } else {
+                        image = ImageIO.read(new File(LegacyImageMaps.legacyImageMapsDownloadedImagesFolder, CacheAll.downloadedImageCache.get(uriString)));
+                        CacheAll.runtimeImageCache.put(localHash,image);
+                    }
+                    notifyServer(I18n.translateToLocalFormatted("legacyimagemaps.image_retrieved_cache", localHash));
                     return true;
                 } catch (Exception e) {
                     CacheAll.downloadedImageCache.remove(uriString);
@@ -380,6 +394,7 @@ public class ImageMap {
                     CompletableFuture.runAsync(() -> {
                         try {
                             String imageHash = getImageHash();
+                            CacheAll.runtimeImageCache.put(imageHash,image);
                             CacheAll.downloadedImageCache.put(uriString, imageHash);
                             ImageIO.write(image, "png", new File(LegacyImageMaps.legacyImageMapsDownloadedImagesFolder, imageHash));
                         } catch (IOException e) {

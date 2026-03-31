@@ -65,6 +65,12 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Whether to allow dithering as an option for imagemaps.", "Default: true"})
         public boolean allowDithering = true;
 
+        @Config.Comment({"Whether to allow players to produce multiple copies of the same map or set of maps at once.", "Default: true"})
+        public boolean allowMultipleCopies = true;
+
+        @Config.Comment({"Adds a \"hasImageMap\" NBT boolean equal to 1 (true) to the data of imagemap items. May be helpful for crafting with a mod like CraftTweaker.", "Default: true"})
+        public boolean addHasImageMapBoolToNBT = true;
+
         @Config.Comment({"Minimum server permission level required to use the command.", "Default: 2"})
         public int minimumPermissionLevelRequired = 2;
 
@@ -98,9 +104,14 @@ public final class LegacyImageMapsConfig
                 "Images are stored based on their hash, so if a URL downloads an image that has the same hash as an already-downloaded one, it does not save two identical images",
                 "and instead logs both urls as having the same resultant hash.",
                 "Images are hashed according to how they existed in memory while being processed, so if two images are visually identical but have different metadata when downloaded,",
-                "then they will probably be considered identical by the mod.",
+                "then they will probably be considered identical by the mod (assuming they are converted into an identical BufferedImage).",
                 "Default: true"})
         public int maxDownloadedImages = 128;
+
+        @Config.Comment({"Number of downloaded images that should be cached directly in memory during runtime.",
+                "This directly stores the BufferedImage object in memory, so it might be marginally faster than file caching by the OS.",
+                "Default: 4"})
+        public int maxCachedImagesDuringRuntime = 4;
 
         @Config.Comment({"Save the byte map->item stack cache to disk with the world.", "Default: true"})
         public boolean saveItemStackCacheToDisk = true;

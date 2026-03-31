@@ -1,5 +1,6 @@
 package nostalgic.legacyimagemaps.imagemaps;
 
+import net.minecraft.block.material.MapColor;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
@@ -26,5 +27,35 @@ public class ImageMapUtils {
                 player.getHeldItemMainhand().setCount(hand.getCount());
             }
         }
+    }
+
+    //getMapColor in MapColor is client-only by default, so its copied over here
+    public static int getMapColor(MapColor color, int index) {
+        int i = 220;
+
+        if (index == 3)
+        {
+            i = 135;
+        }
+
+        if (index == 2)
+        {
+            i = 255;
+        }
+
+        if (index == 1)
+        {
+            i = 220;
+        }
+
+        if (index == 0)
+        {
+            i = 180;
+        }
+
+        int j = (color.colorValue >> 16 & 255) * i / 255;
+        int k = (color.colorValue >> 8 & 255) * i / 255;
+        int l = (color.colorValue & 255) * i / 255;
+        return -16777216 | j << 16 | k << 8 | l;
     }
 }

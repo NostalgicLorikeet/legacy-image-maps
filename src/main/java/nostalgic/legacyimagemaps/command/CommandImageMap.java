@@ -15,7 +15,7 @@ import nostalgic.legacyimagemaps.imagemaps.cache.CacheAll;
 public class CommandImageMap extends CommandBase {
         public static final String helpString = "/imagemap <url> scale <scale> start=<start> end=<end> <transparencythreshold> <flags> <color> OR /imagemap <width> <height> start=<start> end=<end> <transparencythreshold> <flags> <color>";
         public static final TextComponentString help = new TextComponentString(helpString);
-        public static final TextComponentString clearUsage = (TextComponentString) new TextComponentString("Options: bytemaps, colormaps, itemstacks, or downloads").setStyle(new Style().setColor(TextFormatting.RED));
+        public static final TextComponentString clearUsage = (TextComponentString) new TextComponentString("Options: bytemaps, colormaps, itemstacks, downloads, inmemory").setStyle(new Style().setColor(TextFormatting.RED));
 
         @Override
         public String getName() {
@@ -58,6 +58,10 @@ public class CommandImageMap extends CommandBase {
                             case("downloads"):
                                 CacheAll.downloadedImageCache.clear();
                                 sender.sendMessage(new TextComponentString("Download cache cleared"));
+                                break;
+                            case("inmemory"):
+                                CacheAll.runtimeImageCache.clear();
+                                sender.sendMessage(new TextComponentString("In-memory download cache cleared"));
                                 break;
                             default:
                                 sender.sendMessage(clearUsage);

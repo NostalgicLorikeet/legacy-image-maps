@@ -6,7 +6,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
@@ -44,6 +43,7 @@ public class ImageMapRequest {
                     int height;
                     int start = 0;
                     int end = -1;
+                    int copies = 1;
                     int transparencyThreshold = LegacyImageMapsConfig.options.transparencyThreshold;
                     boolean noLetterbox = false;
                     boolean removeAlpha = false;
@@ -90,6 +90,11 @@ public class ImageMapRequest {
                                 }
                                 if (args[i].startsWith("end=")) {
                                     end = Integer.parseInt(args[i].substring(4));
+                                }
+                                if (LegacyImageMapsConfig.options.allowMultipleCopies) {
+                                    if (args[i].startsWith("copies=")) {
+                                        end = Integer.parseInt(args[i].substring(7));
+                                    }
                                 }
                             }
                             if (removeAlpha && i == args.length - 1) {
@@ -141,8 +146,8 @@ public class ImageMapRequest {
                                 end = imagemap.getImageSegmentArrayMaxValue();
                             }
                             imagemap.convertImagesToByteArray(start, end, transparencyThreshold);
-                            int timeT = Math.toIntExact((System.nanoTime() - startT) / 1_000_000);
-                            sender.sendMessage(new TextComponentString(String.valueOf(timeT)));
+                            int timeT = Math.toIntExact((System.nanoTime() - startT) / 1000000);
+                            imagemap.notifyServer(I18n.translateToLocalFormatted("legacyimagemaps.image_time",timeT));
                             sender.getServer().addScheduledTask(() -> {
                                 int pos = imagemap.realStart;
                                 EntityPlayer senderPlayer = null;
@@ -154,44 +159,46 @@ public class ImageMapRequest {
                                     senderPlayer = (EntityPlayer) sender;
                                     isSurvival = !senderPlayer.isCreative();
                                 }
-                                for (ItemStack map : maps) {
-                                    if (isSurvival && LegacyImageMapsConfig.options.survivalUseUpEmptyMaps) {
-                                        boolean hasRequiredItem = false;
-                                        ItemStack emptyMap = null;
-                                        for (ItemStack stack : ((EntityPlayer) sender).inventory.mainInventory) {
-                                            if (!stack.isEmpty() && (LegacyImageMapsConfig.options.useCustomMapBaseType ?
-                                                    stack.getItem().getRegistryName().equals(ImageMapUtils.customMapBaseItemRegistry) && (
-                                                            LegacyImageMapsConfig.options.customMapBaseItemDamage < 0 ||
-                                                                    stack.getItemDamage() == LegacyImageMapsConfig.options.customMapBaseItemDamage)
-                                                    : stack.getItem() == Items.MAP && stack.getMetadata() == 0)) {
-                                                hasRequiredItem = true;
-                                                emptyMap = stack;
+                                for (int i = 0; i < copies; i++) {
+                                    for (ItemStack map : maps) {
+                                        if (isSurvival && LegacyImageMapsConfig.options.survivalUseUpEmptyMaps) {
+                                            boolean hasRequiredItem = false;
+                                            ItemStack emptyMap = null;
+                                            for (ItemStack stack : ((EntityPlayer) sender).inventory.mainInventory) {
+                                                if (!stack.isEmpty() && (LegacyImageMapsConfig.options.useCustomMapBaseType ?
+                                                        stack.getItem().getRegistryName().equals(ImageMapUtils.customMapBaseItemRegistry) && (
+                                                                LegacyImageMapsConfig.options.customMapBaseItemDamage < 0 ||
+                                                                        stack.getItemDamage() == LegacyImageMapsConfig.options.customMapBaseItemDamage)
+                                                        : stack.getItem() == Items.MAP && stack.getMetadata() == 0)) {
+                                                    hasRequiredItem = true;
+                                                    emptyMap = stack;
+                                                    break;
+                                                }
+                                            }
+                                            if (hasRequiredItem) {
+                                                emptyMap.shrink(1);
+                                            } else {
+                                                imagemap.notifySender(I18n.translateToLocal("legacyimagemaps.insufficient_map_count") + " " + pos, true);
                                                 break;
                                             }
                                         }
-                                        if (hasRequiredItem) {
-                                            emptyMap.shrink(1);
+                                        if (isPlayerMP) {
+                                            if (((EntityPlayerMP) sender).connection == null) {
+                                                break;
+                                            }
+                                        }
+                                        if (isPlayer) {
+                                            if (((EntityPlayer) sender).isDead || senderPlayer == null) {
+                                                break;
+                                            }
+                                            if (LegacyImageMapsConfig.options.dropMaps || !senderPlayer.inventory.addItemStackToInventory(map)) {
+                                                senderPlayer.dropItem(map, false);
+                                            }
                                         } else {
-                                            imagemap.notifySender(I18n.translateToLocal("legacyimagemaps.insufficient_map_count") + " " + pos, true);
-                                            break;
+                                            Block.spawnAsEntity(world, sender.getPosition(), map);
                                         }
+                                        pos++;
                                     }
-                                    if (isPlayerMP) {
-                                        if (((EntityPlayerMP) sender).connection == null) {
-                                            break;
-                                        }
-                                    }
-                                    if (isPlayer) {
-                                        if (((EntityPlayer) sender).isDead || senderPlayer == null) {
-                                            break;
-                                        }
-                                        if (LegacyImageMapsConfig.options.dropMaps || !senderPlayer.inventory.addItemStackToInventory(map)) {
-                                            senderPlayer.dropItem(map, false);
-                                        }
-                                    } else {
-                                        Block.spawnAsEntity(world, sender.getPosition(), map);
-                                    }
-                                    pos++;
                                 }
                             });
                         }
