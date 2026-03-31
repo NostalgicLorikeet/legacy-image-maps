@@ -10,4 +10,5 @@ public class CacheAll {
     public static final Map<String, byte[]> byteMap = Collections.synchronizedMap(new CacheLinkedHashMap<>(LegacyImageMapsConfig.options.maxCachedByteArrays));
     public static final Map<Integer, Integer> colorMap = Collections.synchronizedMap(new CacheLinkedHashMap<>(LegacyImageMapsConfig.options.maxCachedColorConversions));
     public static final Map<Long, ItemStack> byteMapToItemStackMap = Collections.synchronizedMap(new CacheLinkedHashMap<>(LegacyImageMapsConfig.options.maxCachedByteMapsToItemStacks));
+    public static final Map<String, String> downloadedImageCache = Collections.synchronizedMap(new CacheLinkedHashMap<>(LegacyImageMapsConfig.options.maxDownloadedImages));
 }

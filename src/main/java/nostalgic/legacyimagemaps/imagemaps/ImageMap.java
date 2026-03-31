@@ -13,6 +13,7 @@ import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
 import net.minecraft.world.storage.MapData;
+import nostalgic.legacyimagemaps.LegacyImageMaps;
 import nostalgic.legacyimagemaps.config.LegacyImageMapsConfig;
 import nostalgic.legacyimagemaps.imagemaps.cache.CacheAll;
 import nostalgic.legacyimagemaps.legacyimagemaps.Tags;
@@ -23,13 +24,14 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.io.File;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.URI;
 import java.net.URL;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
-import java.util.Base64;
+import java.util.concurrent.CompletableFuture;
 
 public class ImageMap {
     static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
@@ -320,13 +322,7 @@ public class ImageMap {
     }
 
     public String getImageHash(BufferedImage imageA) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return Base64.getEncoder().encodeToString(digest.digest(((DataBufferByte) imageA.getRaster().getDataBuffer()).getData()));
-        } catch (NoSuchAlgorithmException e) {
-            notifyServer(String.valueOf(I18n.translateToLocal("legacyimagemaps.image_missing_hash")));
-            return null;
-        }
+        return Hashing.murmur3_128().hashBytes(((DataBufferByte) imageA.getRaster().getDataBuffer()).getData()).toString();
     }
 
     public int[] getImageDimensions() {
@@ -342,10 +338,25 @@ public class ImageMap {
         URL url;
         try {
             url = new URL(urlString);
+            String uriString = new URI(urlString).normalize().toString();
+
+            if (CacheAll.downloadedImageCache.containsKey(uriString) && LegacyImageMapsConfig.options.cacheDownloadedImages) {
+                try {
+                    String localHash = CacheAll.downloadedImageCache.get(uriString);
+                    image = ImageIO.read(new File(LegacyImageMaps.legacyImageMapsDownloadedImagesFolder, CacheAll.downloadedImageCache.get(uriString)));
+                    notifyServer(I18n.translateToLocalFormatted("legacyimagemaps.image_retrieved_cache",localHash));
+                    return true;
+                } catch (Exception e) {
+                    CacheAll.downloadedImageCache.remove(uriString);
+                    notifyServer(I18n.translateToLocal("legacyimagemaps.image_retrieve_fail"));
+                }
+            }
+
             InetAddress address = InetAddress.getByName(url.getHost());
             if (address.isAnyLocalAddress() || address.isLinkLocalAddress() || address.isSiteLocalAddress() || address.isLoopbackAddress()) {
                 throw new Exception();
             }
+
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestProperty("User-Agent", LegacyImageMapsConfig.options.userAgent);
             long connectionSize = connection.getContentLengthLong();
@@ -359,6 +370,19 @@ public class ImageMap {
                 if (imageWidth > maxImageDimensions || imageHeight > maxImageDimensions) {
                     notifyBoth(I18n.translateToLocal("legacyimagemaps.image_too_big") +
                             " (" + imageWidth + "x" + imageHeight + " / " + maxImageDimensions + "x" + maxImageDimensions + ")", true);
+                    return false;
+                }
+
+                if (LegacyImageMapsConfig.options.cacheDownloadedImages) {
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            String imageHash = getImageHash();
+                            CacheAll.downloadedImageCache.put(uriString, imageHash);
+                            ImageIO.write(image, "png", new File(LegacyImageMaps.legacyImageMapsDownloadedImagesFolder, imageHash));
+                        } catch (IOException e) {
+                            notifyServer(I18n.translateToLocal("legacyimagemaps.image_save_fail"));
+                        }
+                    });
                 }
             } else {
                 notifyBoth(I18n.translateToLocal("legacyimagemaps.file_too_big") + " (" + connectionSize + "/" + connectionMaxSize + ")", true);
@@ -367,7 +391,7 @@ public class ImageMap {
             connection.getInputStream().close();
             connection.disconnect();
         } catch (Exception e) {
-            notifyBoth(String.valueOf(I18n.translateToLocal("legacyimagemaps.invalid_image_or_url")), true);
+            notifyBoth(I18n.translateToLocal("legacyimagemaps.invalid_image_or_url"), true);
             if (connection != null) {
                 connection.disconnect();
             }

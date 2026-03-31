@@ -16,7 +16,7 @@ public class ImageMapUtils {
 
     public static long lastRequestTime = 0;
 
-    public static ConcurrentHashMap<String, Integer> playerNewItemStackCount = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, Integer> playerNewItemStackCount = new ConcurrentHashMap<>();
 
     public static void convertFilledMapToEmptyMap(EntityPlayer player) {
         if (!player.getEntityWorld().isRemote) {

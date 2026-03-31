@@ -89,6 +89,12 @@ public final class LegacyImageMapsConfig
                 "Default: true"})
         public boolean saveCacheToDisk = true;
 
+        @Config.Comment({"Cache downloaded images. This option is toggled separately from the above.", "Default: true"})
+        public boolean cacheDownloadedImages = true;
+
+        @Config.Comment({"Max images that should be downloaded and kept on disk.", "Default: true"})
+        public int maxDownloadedImages = 64;
+
         @Config.Comment({"Save the byte map->item stack cache to disk with the world.", "Default: true"})
         public boolean saveItemStackCacheToDisk = true;
 

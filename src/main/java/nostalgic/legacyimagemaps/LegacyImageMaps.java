@@ -20,9 +20,11 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 @Mod(modid = Tags.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION, acceptableRemoteVersions = "*")
 public class LegacyImageMaps {
@@ -30,9 +32,12 @@ public class LegacyImageMaps {
     public static File legacyImageMapsDirectory;
     public static File legacyImageMapsByteMapCacheFile;
     public static File legacyImageMapsColorMapCacheFile;
+    public static File legacyImageMapsDownloadedImagesFolder;
 
     public static File legacyImageMapsByteMapsToItemStackFile;
     public static File legacyImageMapsPlayerItemStackCountFile;
+    public static File legacyImageMapsDownloadedImagesList;
+    public static File legacyImageMapsCacheWarning;
 
     /**
      * <a href="https://cleanroommc.com/wiki/forge-mod-development/event#overview">
@@ -45,6 +50,51 @@ public class LegacyImageMaps {
             legacyImageMapsDirectory = new File(event.getModConfigurationDirectory().getParentFile(), "LegacyImageMaps");
             legacyImageMapsByteMapCacheFile = new File(legacyImageMapsDirectory, "bytemap_cache.dat");
             legacyImageMapsColorMapCacheFile = new File(legacyImageMapsDirectory, "colormap_cache.dat");
+            legacyImageMapsDownloadedImagesFolder = new File(legacyImageMapsDirectory, "downloads");
+            legacyImageMapsDownloadedImagesList = new File(legacyImageMapsDownloadedImagesFolder,"downloads.dat");
+            legacyImageMapsCacheWarning = new File(legacyImageMapsDownloadedImagesFolder,"DO_NOT_PUT_ANYTHING_IN_HERE_IT_WILL_BE_DELETED");
+
+            if (LegacyImageMapsConfig.options.cacheDownloadedImages) {
+                if (!legacyImageMapsDownloadedImagesFolder.exists()) {
+                    legacyImageMapsDownloadedImagesFolder.mkdir();
+                }
+                if (legacyImageMapsDownloadedImagesList.exists()) {
+                    try {
+                        NBTTagCompound downloadedImagesListCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsDownloadedImagesList.toPath()));
+                        for (String key : downloadedImagesListCompound.getKeySet()) {
+                            String filename = downloadedImagesListCompound.getString(key);
+                            if (new File(legacyImageMapsDownloadedImagesFolder,filename).exists()) {
+                                CacheAll.downloadedImageCache.put(key, downloadedImagesListCompound.getString(key));
+                            }
+                        }
+                        try (Stream<Path> files = Files.list(legacyImageMapsDownloadedImagesFolder.toPath())) {
+                            files.filter(Files::isRegularFile)
+                                  .filter(file -> !file.getFileName().toString().equals("downloads.dat"))
+                                  .filter(file -> !file.getFileName().toString().equals(legacyImageMapsCacheWarning.getName()))
+                                  .forEach(file-> {
+                                      if (!CacheAll.downloadedImageCache.containsValue(file.getFileName().toString())) {
+                                          try {
+                                              Files.delete(file);
+                                          } catch (IOException e) {
+                                              throw new RuntimeException(e);
+                                          }
+                                      }
+                                  });
+                        } catch (IOException e) {
+                            LOGGER.error(e);
+                        }
+                    } catch (IOException e) {
+                        LOGGER.error(e);
+                    }
+                }
+                if (!legacyImageMapsCacheWarning.exists()) {
+                    try {
+                        legacyImageMapsCacheWarning.createNewFile();
+                    } catch (IOException e) {
+                        LOGGER.error(e);
+                    }
+                }
+            }
 
             if (!legacyImageMapsDirectory.exists()) {
                 legacyImageMapsDirectory.mkdir();
@@ -87,49 +137,66 @@ public class LegacyImageMaps {
     @SubscribeEvent
     public void cacheSave(WorldEvent.Save event) {
         if (event.getWorld().provider.getDimension() != 0) return;
-        if (LegacyImageMapsConfig.options.saveCacheToDisk) {
-            NBTTagCompound byteMapNBT = new NBTTagCompound();
-            NBTTagCompound colorMapNBT = new NBTTagCompound();
+        CompletableFuture.runAsync(() -> {
+            if (LegacyImageMapsConfig.options.saveCacheToDisk) {
+                NBTTagCompound byteMapNBT = new NBTTagCompound();
+                NBTTagCompound colorMapNBT = new NBTTagCompound();
 
-            Map<String, byte[]> byteMapOld;
-            Map<Integer, Integer> colorMapOld;
+                Map<String, byte[]> byteMapOld;
+                Map<Integer, Integer> colorMapOld;
 
-            synchronized (CacheAll.byteMap) {
-                byteMapOld = new HashMap<>(CacheAll.byteMap);
-            }
-
-            synchronized (CacheAll.colorMap) {
-                colorMapOld = new HashMap<>(CacheAll.colorMap);
-            }
-
-            int[] colorMapKeys = new int[colorMapOld.size()];
-            int[] colorMapValues = new int[colorMapOld.size()];
-
-            for (Map.Entry<String, byte[]> entry : byteMapOld.entrySet()) {
-                byteMapNBT.setByteArray(entry.getKey(), entry.getValue());
-            }
-
-            int i = 0;
-            for (Map.Entry<Integer, Integer> entry : colorMapOld.entrySet()) {
-                colorMapKeys[i] = entry.getKey();
-                colorMapValues[i] = entry.getValue();
-                i++;
-            }
-
-            colorMapNBT.setIntArray("keys", colorMapKeys);
-            colorMapNBT.setIntArray("values", colorMapValues);
-
-            try {
-                try (OutputStream output = Files.newOutputStream(legacyImageMapsByteMapCacheFile.toPath())) {
-                    CompressedStreamTools.writeCompressed(byteMapNBT, output);
+                synchronized (CacheAll.byteMap) {
+                    byteMapOld = new HashMap<>(CacheAll.byteMap);
                 }
-                try (OutputStream output = Files.newOutputStream(legacyImageMapsColorMapCacheFile.toPath())) {
-                    CompressedStreamTools.writeCompressed(colorMapNBT, output);
+
+                synchronized (CacheAll.colorMap) {
+                    colorMapOld = new HashMap<>(CacheAll.colorMap);
                 }
-            } catch (IOException e) {
-                LOGGER.error(e);
+
+                int[] colorMapKeys = new int[colorMapOld.size()];
+                int[] colorMapValues = new int[colorMapOld.size()];
+
+                for (Map.Entry<String, byte[]> entry : byteMapOld.entrySet()) {
+                    byteMapNBT.setByteArray(entry.getKey(), entry.getValue());
+                }
+
+                int i = 0;
+                for (Map.Entry<Integer, Integer> entry : colorMapOld.entrySet()) {
+                    colorMapKeys[i] = entry.getKey();
+                    colorMapValues[i] = entry.getValue();
+                    i++;
+                }
+
+                colorMapNBT.setIntArray("keys", colorMapKeys);
+                colorMapNBT.setIntArray("values", colorMapValues);
+
+                try {
+                    try (OutputStream output = Files.newOutputStream(legacyImageMapsByteMapCacheFile.toPath())) {
+                        CompressedStreamTools.writeCompressed(byteMapNBT, output);
+                    }
+                    try (OutputStream output = Files.newOutputStream(legacyImageMapsColorMapCacheFile.toPath())) {
+                        CompressedStreamTools.writeCompressed(colorMapNBT, output);
+                    }
+                } catch (IOException e) {
+                    LOGGER.error(e);
+                }
             }
-        }
+            if (LegacyImageMapsConfig.options.cacheDownloadedImages) {
+                NBTTagCompound cacheDownloadedImagesNBT = new NBTTagCompound();
+
+                for (Map.Entry<String, String> entry : CacheAll.downloadedImageCache.entrySet()) {
+                    cacheDownloadedImagesNBT.setString(entry.getKey(), entry.getValue());
+                }
+
+                try {
+                    try (OutputStream output = Files.newOutputStream(legacyImageMapsDownloadedImagesList.toPath())) {
+                        CompressedStreamTools.writeCompressed(cacheDownloadedImagesNBT, output);
+                    }
+                } catch (IOException e) {
+                    LOGGER.error(e);
+                }
+            }
+        });
         if (LegacyImageMapsConfig.options.saveItemStackCacheToDisk) {
             NBTTagCompound byteMapToItemStackMapNBT = new NBTTagCompound();
 
@@ -143,7 +210,7 @@ public class LegacyImageMaps {
 
             int i = 0;
             for (Map.Entry<Long, ItemStack> entry : byteMapToItemStackMapOld.entrySet()) {
-                byteMapToItemStackMapNBT.setTag(String.valueOf(entry.getKey()), entry.getValue().serializeNBT());
+                byteMapToItemStackMapNBT.setTag(String.valueOf(entry.getKey()), entry.getValue().copy().serializeNBT());
                 i++;
             }
 
@@ -155,20 +222,27 @@ public class LegacyImageMaps {
                 LOGGER.error(e);
             }
         }
-        legacyImageMapsPlayerItemStackCountFile = new File(DimensionManager.getCurrentSaveRootDirectory(), "data/player_map_counts.dat");
+        if (LegacyImageMapsConfig.options.useMaxPerPlayerMapCount) {
+            legacyImageMapsPlayerItemStackCountFile = new File(DimensionManager.getCurrentSaveRootDirectory(), "data/player_map_counts.dat");
 
-        NBTTagCompound playerMapCountsNBT = new NBTTagCompound();
+            NBTTagCompound playerMapCountsNBT = new NBTTagCompound();
+            Map<String,Integer> playerNewItemStackCountOld;
 
-        for (Map.Entry<String, Integer> entry : ImageMapUtils.playerNewItemStackCount.entrySet()) {
-            playerMapCountsNBT.setInteger(entry.getKey(),entry.getValue());
-        }
-
-        try {
-            try (OutputStream output = Files.newOutputStream(legacyImageMapsPlayerItemStackCountFile.toPath())) {
-                CompressedStreamTools.writeCompressed(playerMapCountsNBT, output);
+            synchronized (ImageMapUtils.playerNewItemStackCount) {
+                playerNewItemStackCountOld = new HashMap<>(ImageMapUtils.playerNewItemStackCount);
             }
-        } catch (IOException e) {
-            LOGGER.error(e);
+
+            for (Map.Entry<String, Integer> entry : playerNewItemStackCountOld.entrySet()) {
+                playerMapCountsNBT.setInteger(entry.getKey(),entry.getValue());
+            }
+
+            try {
+                try (OutputStream output = Files.newOutputStream(legacyImageMapsPlayerItemStackCountFile.toPath())) {
+                    CompressedStreamTools.writeCompressed(playerMapCountsNBT, output);
+                }
+            } catch (IOException e) {
+                LOGGER.error(e);
+            }
         }
     }
 
@@ -190,16 +264,19 @@ public class LegacyImageMaps {
                 }
             }
         }
-        legacyImageMapsPlayerItemStackCountFile = new File(DimensionManager.getCurrentSaveRootDirectory(), "data/player_map_counts.dat");
+        if (LegacyImageMapsConfig.options.useMaxPerPlayerMapCount) {
+            legacyImageMapsPlayerItemStackCountFile = new File(DimensionManager.getCurrentSaveRootDirectory(), "data/player_map_counts.dat");
+            ImageMapUtils.playerNewItemStackCount.clear();
 
-        if (legacyImageMapsPlayerItemStackCountFile.exists()) {
-            try {
-                NBTTagCompound playerItemStackCountCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsPlayerItemStackCountFile.toPath()));
-                for (String key : playerItemStackCountCompound.getKeySet()) {
-                    ImageMapUtils.playerNewItemStackCount.put(key,playerItemStackCountCompound.getInteger(key));
+            if (legacyImageMapsPlayerItemStackCountFile.exists()) {
+                try {
+                    NBTTagCompound playerItemStackCountCompound = CompressedStreamTools.readCompressed(Files.newInputStream(legacyImageMapsPlayerItemStackCountFile.toPath()));
+                    for (String key : playerItemStackCountCompound.getKeySet()) {
+                        ImageMapUtils.playerNewItemStackCount.put(key,playerItemStackCountCompound.getInteger(key));
+                    }
+                } catch (IOException e) {
+                    LOGGER.error(e);
                 }
-            } catch (IOException e) {
-                LOGGER.error(e);
             }
         }
     }
