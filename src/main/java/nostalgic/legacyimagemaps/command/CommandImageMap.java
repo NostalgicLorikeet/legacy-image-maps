@@ -29,42 +29,50 @@ public class CommandImageMap extends CommandBase {
 
         @Override
         public void execute(MinecraftServer server, ICommandSender sender, String[] args) {
-            if (args[0].equals("help")) {
-                sender.sendMessage(help);
-            } else if (args[0].equals("unfill")) {
-                if (LegacyImageMapsConfig.options.clearMapsUsingCommand) {
-                    if (sender instanceof EntityPlayer) {
-                        ImageMapUtils.convertFilledMapToEmptyMap((EntityPlayer) sender);
+            try {
+                if (args[0].equals("help")) {
+                    sender.sendMessage(help);
+                } else if (args[0].equals("unfill")) {
+                    if (LegacyImageMapsConfig.options.clearMapsUsingCommand) {
+                        if (sender instanceof EntityPlayer) {
+                            ImageMapUtils.convertFilledMapToEmptyMap((EntityPlayer) sender);
+                        }
                     }
-                }
-            } else if (args[0].equals("clear")) {
-                if (args.length == 1) {
-                    sender.sendMessage(clearUsage);
+                } else if (args[0].equals("clear")) {
+                    if (args.length == 1) {
+                        sender.sendMessage(clearUsage);
+                    } else {
+                        switch(args[1]) {
+                            case("bytemaps"):
+                                CacheAll.byteMap.clear();
+                                sender.sendMessage(new TextComponentString("Byte array cache cleared"));
+                                break;
+                            case("colormaps"):
+                                CacheAll.colorMap.clear();
+                                sender.sendMessage(new TextComponentString("Color map cache cleared"));
+                                break;
+                            case("itemstacks"):
+                                CacheAll.byteMapToItemStackMap.clear();
+                                sender.sendMessage(new TextComponentString("ItemStack cache cleared"));
+                                break;
+                            case("downloads"):
+                                CacheAll.downloadedImageCache.clear();
+                                sender.sendMessage(new TextComponentString("Download cache cleared"));
+                                break;
+                            default:
+                                sender.sendMessage(clearUsage);
+                        }
+                    }
                 } else {
-                    switch(args[1]) {
-                        case("bytemaps"):
-                            CacheAll.byteMap.clear();
-                            break;
-                        case("colormaps"):
-                            CacheAll.colorMap.clear();
-                            break;
-                        case("itemstacks"):
-                            CacheAll.byteMapToItemStackMap.clear();
-                            break;
-                        case("downloads"):
-                            CacheAll.downloadedImageCache.clear();
-                            break;
-                        default:
-                            sender.sendMessage(clearUsage);
+                    try {
+                        new ImageMapRequest(sender, args);
+                    } catch (Exception e) {
+                        sender.sendMessage(help.setStyle(new Style().setColor(TextFormatting.RED)));
+                        System.out.println(e);
                     }
                 }
-            } else {
-                try {
-                    new ImageMapRequest(sender, args);
-                } catch (Exception e) {
-                    sender.sendMessage(help.setStyle(new Style().setColor(TextFormatting.RED)));
-                    System.out.println(e);
-                }
+            } catch (Exception e) {
+                sender.sendMessage(help.setStyle(new Style().setColor(TextFormatting.RED)));
             }
         }
 

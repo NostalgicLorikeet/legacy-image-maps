@@ -92,8 +92,15 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Cache downloaded images. This option is toggled separately from the above.", "Default: true"})
         public boolean cacheDownloadedImages = true;
 
-        @Config.Comment({"Max images that should be downloaded and kept on disk.", "Default: true"})
-        public int maxDownloadedImages = 64;
+        @Config.Comment({"Max number of URLs that should be logged in the map of cached images.",
+                "This does not equate to the number of images that are cached because an image may be sourced from multiple URLs",
+                "for example because of how Discord file tokens work.",
+                "Images are stored based on their hash, so if a URL downloads an image that has the same hash as an already-downloaded one, it does not save two identical images",
+                "and instead logs both urls as having the same resultant hash.",
+                "Images are hashed according to how they existed in memory while being processed, so if two images are visually identical but have different metadata when downloaded,",
+                "then they will probably be considered identical by the mod.",
+                "Default: true"})
+        public int maxDownloadedImages = 128;
 
         @Config.Comment({"Save the byte map->item stack cache to disk with the world.", "Default: true"})
         public boolean saveItemStackCacheToDisk = true;
