@@ -39,6 +39,11 @@ public class CommandImageMap extends CommandBase {
                         }
                     }
                 } else if (args[0].equals("clear")) {
+                    if (sender instanceof EntityPlayer) {
+                        if (!sender.getServer().getPlayerList().canSendCommands(((EntityPlayer) sender).getGameProfile())) {
+                            return;
+                        }
+                    }
                     if (args.length == 1) {
                         sender.sendMessage(clearUsage);
                     } else {
@@ -82,11 +87,6 @@ public class CommandImageMap extends CommandBase {
 
         @Override
         public boolean checkPermission(MinecraftServer server, ICommandSender sender) {
-            return sender.canUseCommand(this.getRequiredPermissionLevel(), this.getName());
-        }
-
-        @Override
-        public int getRequiredPermissionLevel() {
-            return LegacyImageMapsConfig.options.minimumPermissionLevelRequired;
+            return LegacyImageMapsConfig.options.anyoneCanUseImageMapCommand;
         }
 }

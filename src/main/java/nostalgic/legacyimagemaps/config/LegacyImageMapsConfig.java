@@ -71,8 +71,8 @@ public final class LegacyImageMapsConfig
         @Config.Comment({"Adds a \"hasImageMap\" NBT boolean equal to 1 (true) to the data of imagemap items. May be helpful for crafting with a mod like CraftTweaker.", "Default: true"})
         public boolean addHasImageMapBoolToNBT = true;
 
-        @Config.Comment({"Minimum server permission level required to use the command.", "Default: 2"})
-        public int minimumPermissionLevelRequired = 2;
+        @Config.Comment({"Whether anyone can use the /imagemap command.", "Default: false"})
+        public boolean anyoneCanUseImageMapCommand = false;
 
         @Config.Comment({"Whether to use up empty maps from the player's inventory when run in survival mode.", "Default: true"})
         public boolean survivalUseUpEmptyMaps = true;
