@@ -87,6 +87,6 @@ public class CommandImageMap extends CommandBase {
 
         @Override
         public boolean checkPermission(MinecraftServer server, ICommandSender sender) {
-            return LegacyImageMapsConfig.options.anyoneCanUseImageMapCommand;
+            return LegacyImageMapsConfig.options.anyoneCanUseImageMapCommand || sender.getServer().getPlayerList().canSendCommands(((EntityPlayer) sender).getGameProfile());
         }
 }
