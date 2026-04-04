@@ -90,6 +90,9 @@ public final class LegacyImageMapsConfig
         public String customMapBaseItemID = "minecraft:flint";
         public int customMapBaseItemDamage = -1;
 
+        @Config.Comment({"If using a custom map base item, return it when running \"/imagemap unfill\".", "Default: true"})
+        public boolean returnCustomMapBaseTypeInUnfill = true;
+
         @Config.Comment({"Save the global caches (the byte map and color map) to disk with the world. Disable if this causes performance issues.",
                 "Setting to false will still cache these values per-session",
                 "Default: true"})
